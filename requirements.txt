@@ -1,0 +1,8 @@
+# Claude Continue - iTerm2 automation daemon for Claude Code
+# Python 3.10+ required
+
+# iTerm2 Python API (macOS only)
+iterm2>=2.7
+
+# Web GUI server
+aiohttp>=3.8
