@@ -120,7 +120,8 @@ LOG_FILE = os.path.expanduser(os.getenv(
     "CLAUDE_CONTINUE_LOG_FILE",
     "~/Library/Logs/claude-continue.log"
 ))
-LOG_TO_CONSOLE = os.getenv("CLAUDE_CONTINUE_LOG_CONSOLE", "true").lower() == "true"
+# Default to file-only logging to keep the terminal clean.
+LOG_TO_CONSOLE = os.getenv("CLAUDE_CONTINUE_LOG_CONSOLE", "false").lower() == "true"
 
 # =============================================================================
 # DEBUG MODE

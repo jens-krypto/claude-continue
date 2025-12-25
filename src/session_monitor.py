@@ -188,25 +188,25 @@ class SessionMonitor:
             if auto_approve:
                 response = "1"  # Approve
                 action_type = "approved"
-                logger.info(f"Auto-approving: {prompt.text[:50]}")
+                logger.debug(f"Auto-approving: {prompt.text[:50]}")
             else:
                 # Use smart regex to decide
                 response = self.responder.get_response(prompt.text, prompt.context)
                 action_type = f"regex: {response}"
-                logger.info(f"Smart regex decided: {response}")
+                logger.debug(f"Smart regex decided: {response}")
 
         elif prompt.prompt_type == PromptType.CONTINUATION:
             if auto_continue:
                 await asyncio.sleep(CONTINUE_DELAY)
                 response = CONTINUE_MESSAGE
                 action_type = "continue"
-                logger.info("Sending continuation")
+                logger.debug("Sending continuation")
 
         elif prompt.prompt_type == PromptType.QUESTION:
             if answer_questions:
                 response = self.responder.get_response(prompt.text, prompt.context)
                 action_type = f"answered: {response[:20] if response else 'None'}"
-                logger.info(f"Smart regex answered: {response[:50] if response else 'None'}")
+                logger.debug(f"Smart regex answered: {response[:50] if response else 'None'}")
 
         elif prompt.prompt_type == PromptType.COMPLETED:
             # Get auto_followup from web state or config
@@ -231,7 +231,7 @@ class SessionMonitor:
                     response = FOLLOWUP_PROMPTS[self.state.followup_index % len(FOLLOWUP_PROMPTS)]
                     self.state.followup_index += 1
                     action_type = f"followup: {response[:30]}..."
-                    logger.info(f"Sending follow-up prompt: {response}")
+                    logger.debug(f"Sending follow-up prompt: {response}")
 
                     # Update followup time
                     self.state.last_followup_time = time.time()
@@ -252,7 +252,7 @@ class SessionMonitor:
             if not text.endswith('\n') and text not in ['1', '2', '3']:
                 text = text + '\n'
             await self.session.async_send_text(text)
-            logger.info(f"Sent to session {self.state.session_id}: {text[:50]}")
+            logger.debug(f"Sent to session {self.state.session_id}: {text[:50]}")
         except Exception as e:
             logger.error(f"Error sending response: {e}")
 
@@ -267,7 +267,7 @@ class SessionManager:
         self.responder = SmartResponder()
         self._discovery_task: Optional[asyncio.Task] = None
 
-        logger.info("Using Smart Regex for fast offline responses")
+        logger.debug("Using Smart Regex for fast offline responses")
 
     async def start(self):
         """Start session discovery and monitoring."""
