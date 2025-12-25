@@ -594,6 +594,17 @@ HTML_TEMPLATE = """
             font-size: 0.8rem;
         }
 
+        .disclaimer {
+            font-size: 0.75rem;
+            color: #ff6b6b;
+            padding: 12px;
+            background: rgba(255, 107, 107, 0.15);
+            border: 1px solid rgba(255, 107, 107, 0.3);
+            border-radius: 8px;
+            margin-top: 15px;
+            text-align: center;
+        }
+
         /* Control Section */
         .control-section {
             background: rgba(0,0,0,0.2);
@@ -772,6 +783,11 @@ HTML_TEMPLATE = """
                     <li>Restart iTerm2</li>
                 </ol>
             </details>
+
+            <div class="disclaimer">
+                ⚠️ <strong>DISCLAIMER:</strong> This software is provided as-is. You run this service at your own risk.
+                Auto-approving commands can be dangerous. Review the settings carefully.
+            </div>
         </div>
 
         <div class="control-section">

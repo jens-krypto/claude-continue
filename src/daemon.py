@@ -314,6 +314,17 @@ def print_startup_banner(show_web: bool = True):
             continue
         print(f"{TEXT}{line}{RESET}")
 
+    # Print disclaimer
+    WARNING = '\033[93m'
+    DIM = '\033[2m'
+    print()
+    print(f"{WARNING}⚠️  DISCLAIMER: This software is provided as-is.{RESET}")
+    print(f"{WARNING}   You run this service at your own risk.{RESET}")
+    print(f"{WARNING}   Auto-approving commands can be dangerous.{RESET}")
+    print()
+    print(f"{DIM}Press Ctrl+C to stop the daemon.{RESET}")
+    print()
+
 
 def run_daemon(start_web=True):
     """Run the daemon with iTerm2 integration."""
