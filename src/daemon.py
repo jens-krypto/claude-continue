@@ -44,6 +44,13 @@ from config import (
     DEBUG,
 )
 
+
+class NoiseFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.name.startswith("aiohttp.access"):
+            return False
+        return True
+
 # Setup logging
 def setup_logging():
     """Configure logging for the daemon."""
@@ -55,6 +62,7 @@ def setup_logging():
     if LOG_TO_CONSOLE:
         console_handler = logging.StreamHandler()
         console_handler.setFormatter(logging.Formatter(log_format))
+        console_handler.addFilter(NoiseFilter())
         handlers.append(console_handler)
 
     # Create log directory if needed
@@ -65,6 +73,7 @@ def setup_logging():
     try:
         file_handler = logging.FileHandler(LOG_FILE)
         file_handler.setFormatter(logging.Formatter(log_format))
+        file_handler.addFilter(NoiseFilter())
         handlers.append(file_handler)
     except Exception as e:
         print(f"Warning: Could not create log file {LOG_FILE}: {e}")
@@ -77,6 +86,12 @@ def setup_logging():
 
     # Reduce noise from other loggers
     logging.getLogger("asyncio").setLevel(logging.WARNING)
+    logging.getLogger("aiohttp.web").setLevel(logging.WARNING)
+    access_logger = logging.getLogger("aiohttp.access")
+    access_logger.handlers.clear()
+    access_logger.propagate = False
+    access_logger.setLevel(logging.CRITICAL)
+    access_logger.disabled = True
 
 
 logger = logging.getLogger(__name__)
@@ -208,7 +223,10 @@ def main_test():
 
 def print_startup_banner():
     """Print the startup banner."""
-    CYAN = '\033[96m'
+    BLUE_BG = '\033[44m'
+    YELLOW_BG = '\033[43m'
+    BLUE_FG = '\033[97m'
+    YELLOW_FG = '\033[30m'
     RESET = '\033[0m'
     banner = """
 ╔═════════════════════════════════════════════════════════════════════╗
@@ -232,12 +250,28 @@ def print_startup_banner():
 ║                        addicted.bot                                 ║
 ╚═════════════════════════════════════════════════════════════════════╝
 """
-    print(f"{CYAN}{banner}{RESET}")
+    lines = banner.strip("\n").splitlines()
+    height = len(lines)
+    width = max(len(line) for line in lines)
+    v_start = int(width * 5 / 16)
+    v_width = max(2, int(width * 2 / 16))
+    h_start = int(height * 4 / 10)
+    h_height = max(1, int(height * 2 / 10))
+
+    print()
+    for row, line in enumerate(lines):
+        padded = line.ljust(width)
+        if h_start <= row < h_start + h_height:
+            print(f"{YELLOW_BG}{YELLOW_FG}{padded}{RESET}")
+            continue
+        left = padded[:v_start]
+        mid = padded[v_start:v_start + v_width]
+        right = padded[v_start + v_width:]
+        print(f"{BLUE_BG}{BLUE_FG}{left}{YELLOW_BG}{YELLOW_FG}{mid}{BLUE_BG}{BLUE_FG}{right}{RESET}")
 
 
 def run_daemon(start_web=True):
     """Run the daemon with iTerm2 integration."""
-    print_startup_banner()
 
     try:
         import iterm2
@@ -294,6 +328,8 @@ def main():
     )
 
     args = parser.parse_args()
+
+    print_startup_banner()
 
     if args.version:
         from src import __version__

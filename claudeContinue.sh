@@ -14,15 +14,6 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 export CLAUDE_CONTINUE_LOG_CONSOLE="${CLAUDE_CONTINUE_LOG_CONSOLE:-false}"
-export CLAUDE_CONTINUE_SHOW_BANNER="${CLAUDE_CONTINUE_SHOW_BANNER:-false}"
-
-if [[ "${CLAUDE_CONTINUE_SHOW_BANNER}" == "true" ]]; then
-    echo -e "${BLUE}╔═══════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║${YELLOW}     CLAUDE CONTINUE by Anomaly Alpha      ${BLUE}║${NC}"
-    echo -e "${BLUE}║${YELLOW}     iTerm2 Automation for Claude Code     ${BLUE}║${NC}"
-    echo -e "${BLUE}║${YELLOW}             addicted.bot                  ${BLUE}║${NC}"
-    echo -e "${BLUE}╚═══════════════════════════════════════════╝${NC}"
-fi
 
 # Check if venv exists
 if [ ! -f "$VENV_DIR/bin/python" ]; then
@@ -69,9 +60,5 @@ fi
 
 # Start the daemon
 cd "$SCRIPT_DIR"
-if [[ "${CLAUDE_CONTINUE_SHOW_BANNER}" == "true" ]]; then
-    echo -e "${GREEN}Starting Claude Continue daemon...${NC}"
-    echo ""
-fi
 
 exec "$VENV_DIR/bin/python" "$SCRIPT_DIR/src/daemon.py" $ARGS

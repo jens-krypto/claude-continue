@@ -73,7 +73,7 @@ class SessionMonitor:
         """Start monitoring this session."""
         self.running = True
         self._monitor_task = asyncio.create_task(self._monitor_loop())
-        logger.info(f"Started monitoring session {self.state.session_id}")
+        logger.debug(f"Started monitoring session {self.state.session_id}")
 
     async def stop(self):
         """Stop monitoring this session."""
@@ -84,7 +84,7 @@ class SessionMonitor:
                 await self._monitor_task
             except asyncio.CancelledError:
                 pass
-        logger.info(f"Stopped monitoring session {self.state.session_id}")
+        logger.debug(f"Stopped monitoring session {self.state.session_id}")
 
     async def _monitor_loop(self):
         """Main monitoring loop using screen streaming."""
@@ -272,7 +272,7 @@ class SessionManager:
     async def start(self):
         """Start session discovery and monitoring."""
         self._discovery_task = asyncio.create_task(self._discovery_loop())
-        logger.info("Session manager started")
+        logger.debug("Session manager started")
 
     async def stop(self):
         """Stop all monitors and cleanup."""
@@ -289,7 +289,7 @@ class SessionManager:
                 await monitor.stop()
         self.monitors.clear()
 
-        logger.info("Session manager stopped")
+        logger.debug("Session manager stopped")
 
     async def _discovery_loop(self):
         """Periodically discover and monitor new sessions."""
@@ -323,7 +323,7 @@ class SessionManager:
                         # Non-Claude session - re-check if Claude started
                         is_claude = await self._is_claude_session(session)
                         if is_claude:
-                            logger.info(f"Claude Code detected in session - starting monitor")
+                            logger.debug("Claude Code detected in session - starting monitor")
                             await self._start_monitoring(session)
 
         # Remove monitors for closed sessions
@@ -333,7 +333,7 @@ class SessionManager:
             if monitor is not None:
                 await monitor.stop()
             remove_session(session_id)  # Update web GUI
-            logger.info(f"Removed monitor for closed session {session_id}")
+            logger.debug(f"Removed monitor for closed session {session_id}")
 
     async def _is_claude_session(self, session) -> bool:
         """Check if a session appears to be running Claude Code.
@@ -429,7 +429,7 @@ class SessionManager:
         if is_force_monitored(session.session_id):
             is_claude = True
             status = "forced"
-            logger.info(f"Force monitoring session: {name}")
+            logger.debug(f"Force monitoring session: {name}")
         else:
             # Register as scanning first
             update_session(session.session_id, name, is_claude_session=False, status="scanning")
@@ -448,7 +448,7 @@ class SessionManager:
             self.monitors[session.session_id] = None  # Placeholder
             return
 
-        logger.info(f"Claude Code {'detected' if status == 'detected' else 'forced'} in session: {name}")
+        logger.debug(f"Claude Code {'detected' if status == 'detected' else 'forced'} in session: {name}")
 
         monitor = SessionMonitor(
             session=session,
