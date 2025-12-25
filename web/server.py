@@ -6,14 +6,46 @@ Runs on port 7777 and provides a control panel for monitoring sessions.
 import asyncio
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Optional
 from aiohttp import web
 
 logger = logging.getLogger(__name__)
 
+# CORS middleware - only allow same-origin requests
+ALLOWED_ORIGIN = 'http://localhost:7777'
+
+
+@web.middleware
+async def cors_middleware(request, handler):
+    """CORS middleware to prevent cross-origin attacks."""
+    origin = request.headers.get('Origin', '')
+
+    # Allow requests with no Origin header (same-origin, curl, etc.)
+    # But block cross-origin requests from other websites
+    if origin and origin != ALLOWED_ORIGIN:
+        logger.warning(f"Blocked cross-origin request from: {origin}")
+        return web.json_response(
+            {"error": "Cross-origin requests not allowed"},
+            status=403
+        )
+
+    response = await handler(request)
+
+    # Set CORS headers for allowed origins
+    if origin == ALLOWED_ORIGIN:
+        response.headers['Access-Control-Allow-Origin'] = ALLOWED_ORIGIN
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+
+    return response
+
 # Port for the web GUI
 WEB_PORT = 7777
+
+# Lock for thread-safe state modifications
+_state_lock = asyncio.Lock()
 
 # Session state (shared with daemon)
 _session_state = {
@@ -105,8 +137,7 @@ HTML_TEMPLATE = """
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Claude Continue | Control Panel</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Using system fonts for privacy - no external font loading -->
     <style>
         :root {
             --pink: #d94b8a;
@@ -128,7 +159,7 @@ HTML_TEMPLATE = """
         }
 
         body {
-            font-family: 'Orbitron', sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, monospace;
             background: linear-gradient(160deg, var(--bg-pink) 0%, var(--orange) 50%, var(--bg-gold) 100%);
             min-height: 100vh;
             color: #fff;
@@ -642,7 +673,7 @@ HTML_TEMPLATE = """
         }
 
         .disconnected-title {
-            font-family: 'Orbitron', sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, monospace;
             font-size: 1.5rem;
             color: var(--gold);
             margin-bottom: 10px;
@@ -677,8 +708,8 @@ HTML_TEMPLATE = """
     <div class="container">
         <header class="header">
             <div class="logo-circle">
-                <img src="https://addicted.bot/wp-content/uploads/2025/12/Anomaly-Alpha-Logo-8K-Transparent-scaled-e1766007310435.png"
-                     alt="Anomaly Alpha" style="width: 100%; height: auto; filter: drop-shadow(0 0 10px var(--cyan));">
+                <!-- Using emoji instead of external image for privacy -->
+                <span style="font-size: 60px; filter: drop-shadow(0 0 10px var(--cyan));">🤖</span>
             </div>
             <h1 class="brand-name">CLAUDE</h1>
             <p class="brand-sub">CONTINUE</p>
@@ -994,9 +1025,10 @@ async def handle_settings(request):
     """Update settings."""
     try:
         data = await request.json()
-        for key in ['auto_approve', 'auto_continue', 'answer_questions', 'auto_followup']:
-            if key in data:
-                _session_state[key] = bool(data[key])
+        async with _state_lock:
+            for key in ['auto_approve', 'auto_continue', 'answer_questions', 'auto_followup']:
+                if key in data:
+                    _session_state[key] = bool(data[key])
         return web.json_response({"success": True})
     except Exception as e:
         return web.json_response({"error": str(e)}, status=400)
@@ -1006,9 +1038,14 @@ async def handle_session_toggle(request):
     """Toggle session enabled state."""
     try:
         session_id = request.match_info['session_id']
+        # Validate session_id format (alphanumeric with hyphens/underscores)
+        if not re.match(r'^[A-Za-z0-9_-]+$', session_id):
+            return web.json_response({"error": "Invalid session ID format"}, status=400)
+
         data = await request.json()
-        if session_id in _session_state["sessions"]:
-            _session_state["sessions"][session_id]["enabled"] = bool(data.get("enabled", True))
+        async with _state_lock:
+            if session_id in _session_state["sessions"]:
+                _session_state["sessions"][session_id]["enabled"] = bool(data.get("enabled", True))
         return web.json_response({"success": True})
     except Exception as e:
         return web.json_response({"error": str(e)}, status=400)
@@ -1018,18 +1055,21 @@ async def handle_control(request):
     """Handle daemon control actions (pause/resume)."""
     try:
         action = request.match_info['action']
-        if action == 'pause':
-            _session_state["paused"] = True
-            _session_state["daemon_status"] = "paused"
-            logger.info("Daemon paused by user")
-            return web.json_response({"success": True, "status": "paused"})
-        elif action == 'resume':
-            _session_state["paused"] = False
-            _session_state["daemon_status"] = "running"
-            logger.info("Daemon resumed by user")
-            return web.json_response({"success": True, "status": "running"})
-        else:
+        # Validate action is one of the allowed values
+        if action not in ('pause', 'resume'):
             return web.json_response({"error": f"Unknown action: {action}"}, status=400)
+
+        async with _state_lock:
+            if action == 'pause':
+                _session_state["paused"] = True
+                _session_state["daemon_status"] = "paused"
+                logger.info("Daemon paused by user")
+                return web.json_response({"success": True, "status": "paused"})
+            elif action == 'resume':
+                _session_state["paused"] = False
+                _session_state["daemon_status"] = "running"
+                logger.info("Daemon resumed by user")
+                return web.json_response({"success": True, "status": "running"})
     except Exception as e:
         return web.json_response({"error": str(e)}, status=400)
 
@@ -1038,11 +1078,17 @@ async def handle_force_monitor(request):
     """Force monitor a session regardless of Claude detection."""
     try:
         session_id = request.match_info['session_id']
+        # Validate session_id format (alphanumeric with hyphens/underscores)
+        if not re.match(r'^[A-Za-z0-9_-]+$', session_id):
+            return web.json_response({"error": "Invalid session ID format"}, status=400)
+
         data = await request.json()
         force = bool(data.get("force", True))
-        if force_monitor_session(session_id, force):
-            logger.info(f"Force monitor {'enabled' if force else 'disabled'} for session {session_id}")
-            return web.json_response({"success": True, "force": force})
+
+        async with _state_lock:
+            if force_monitor_session(session_id, force):
+                logger.info(f"Force monitor {'enabled' if force else 'disabled'} for session {session_id}")
+                return web.json_response({"success": True, "force": force})
         return web.json_response({"error": "Session not found"}, status=404)
     except Exception as e:
         return web.json_response({"error": str(e)}, status=400)
@@ -1055,7 +1101,7 @@ def is_paused() -> bool:
 
 def create_app():
     """Create the web application."""
-    app = web.Application()
+    app = web.Application(middlewares=[cors_middleware])
     app.router.add_get('/', handle_index)
     app.router.add_get('/api/status', handle_status)
     app.router.add_post('/api/settings', handle_settings)
@@ -1070,7 +1116,7 @@ async def start_web_server():
     app = create_app()
     runner = web.AppRunner(app, access_log=None)
     await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', WEB_PORT)
+    site = web.TCPSite(runner, '127.0.0.1', WEB_PORT)
     await site.start()
     logger.info(f"Web GUI running at http://localhost:{WEB_PORT}")
     set_daemon_status("running")

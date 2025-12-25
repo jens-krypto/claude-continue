@@ -4,6 +4,7 @@ Watches terminal sessions and detects prompts that need responses.
 """
 import asyncio
 import logging
+import re
 import time
 from typing import Optional, Dict, Set
 from dataclasses import dataclass
@@ -11,6 +12,21 @@ from dataclasses import dataclass
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Regex to strip ANSI escape sequences (cursor movement, colors, etc.)
+# This prevents malicious processes from hiding text using escape codes
+ANSI_ESCAPE_PATTERN = re.compile(
+    r'\x1B'  # ESC character
+    r'(?:'
+    r'[@-Z\\-_]'  # Single-character sequences
+    r'|'
+    r'\[[0-?]*[ -/]*[@-~]'  # CSI sequences (most common)
+    r'|'
+    r'\][^\x07]*\x07'  # OSC sequences (terminated by BEL)
+    r'|'
+    r'\][^\x1B]*\x1B\\'  # OSC sequences (terminated by ST)
+    r')'
+)
 
 from config import (
     ACTION_COOLDOWN_SECONDS,
@@ -157,13 +173,19 @@ class SessionMonitor:
         await self._handle_prompt(prompt)
 
     def _extract_text(self, contents) -> str:
-        """Extract text from iTerm2 screen contents."""
+        """Extract and sanitize text from iTerm2 screen contents.
+
+        Strips ANSI escape codes to prevent malicious processes from
+        hiding text or manipulating what the pattern detector sees.
+        """
         try:
             lines = []
             for i in range(contents.number_of_lines):
                 line = contents.line(i)
                 if line:
-                    lines.append(line.string)
+                    # Strip ANSI escape sequences for security
+                    clean_line = ANSI_ESCAPE_PATTERN.sub('', line.string)
+                    lines.append(clean_line)
             return '\n'.join(lines)
         except Exception as e:
             logger.error(f"Error extracting screen text: {e}")
@@ -245,9 +267,50 @@ class SessionMonitor:
             # Update web GUI
             increment_prompt_count(self.state.session_id, action_type)
 
-    async def _send_response(self, text: str):
-        """Send text to the session."""
+    async def _verify_claude_active(self) -> bool:
+        """Verify Claude is still the active process before sending response.
+
+        This prevents sending responses to other programs that might have
+        taken over the terminal (security measure against injection attacks).
+        """
         try:
+            # Re-check screen content for Claude indicators
+            contents = await self.session.async_get_screen_contents()
+            if not contents:
+                return False
+
+            screen_text = self._extract_text(contents)
+
+            # Look for definitive Claude Code indicators
+            claude_indicators = [
+                '⏺',  # Claude's action bullet point
+                '⎿',  # Claude's output marker
+                'Claude wants to',
+                'Claude is thinking',
+                "Yes, and don't ask again",
+                'Allow Claude to',
+            ]
+
+            for indicator in claude_indicators:
+                if indicator in screen_text:
+                    return True
+
+            # If no strong indicators, be cautious
+            logger.warning("Could not verify Claude is active - skipping response")
+            return False
+
+        except Exception as e:
+            logger.error(f"Error verifying Claude status: {e}")
+            return False
+
+    async def _send_response(self, text: str):
+        """Send text to the session after verifying Claude is active."""
+        try:
+            # Security: verify Claude is still active before sending
+            if not await self._verify_claude_active():
+                logger.warning(f"Blocked response - Claude not verified active")
+                return
+
             # Add newline if not present (to submit the response)
             if not text.endswith('\n') and text not in ['1', '2', '3']:
                 text = text + '\n'

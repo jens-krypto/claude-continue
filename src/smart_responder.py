@@ -73,19 +73,73 @@ class SmartResponder:
     # DANGEROUS PATTERNS - Deny or ask for confirmation
     # =========================================================================
     DANGEROUS_PATTERNS = [
-        (r"rm\s+-rf\s+/", "recursive delete from root"),
-        (r"rm\s+-rf\s+~", "recursive delete from home"),
+        # Destructive file operations
+        (r"rm\s+(-[a-zA-Z]*r[a-zA-Z]*\s+)?(-[a-zA-Z]*f[a-zA-Z]*\s+)?/($|\s)", "recursive delete from root"),
+        (r"rm\s+(-[a-zA-Z]*r[a-zA-Z]*\s+)?(-[a-zA-Z]*f[a-zA-Z]*\s+)?~", "recursive delete from home"),
+        (r"rm\s+(-[a-zA-Z]*)?--recursive\s+--force", "recursive delete with long flags"),
         (r"rm\s+-rf\s+\*", "recursive delete wildcard"),
+        (r"rm\s+-rf\s+\.", "recursive delete current dir"),
+
+        # Environment and secrets
         (r"delete\s+.*\.env", "delete env file"),
         (r"edit\s+.*\.env", "edit env file"),
+        (r"cat\s+.*\.env", "read env file"),
+        (r"\.env", "env file access"),
+        (r"(password|secret|token|api.?key|private.?key)\s*=", "hardcoded secret"),
+
+        # Disk/device operations
         (r">\s*/dev/", "redirect to device"),
-        (r"chmod\s+777", "insecure permissions"),
-        (r"curl.*\|\s*(bash|sh)", "pipe curl to shell"),
-        (r"eval\s*\(", "eval execution"),
-        (r"sudo\s+rm", "sudo delete"),
-        (r"DROP\s+TABLE", "SQL drop table"),
-        (r"DELETE\s+FROM.*WHERE\s+1", "SQL delete all"),
+        (r"dd\s+.*of=/dev/", "disk write operation"),
+        (r"mkfs\.", "format filesystem"),
         (r"format\s+", "format operation"),
+        (r"fdisk\s+", "disk partitioning"),
+
+        # Permission issues
+        (r"chmod\s+777", "world-writable permissions"),
+        (r"chmod\s+-R\s+777", "recursive world-writable"),
+        (r"chmod\s+.*\s+/", "chmod on system paths"),
+
+        # Remote code execution
+        (r"curl.*\|\s*(bash|sh|python|perl|ruby)", "pipe download to shell"),
+        (r"wget.*\|\s*(bash|sh|python|perl|ruby)", "pipe download to shell"),
+        (r"curl.*>\s*[^|]+\s*&&\s*(bash|sh|python)", "download and execute"),
+
+        # Code injection
+        (r"eval\s*\(", "eval execution"),
+        (r"\$\(.*\)", "command substitution in string"),
+        (r"`[^`]+`", "backtick command execution"),
+
+        # Privilege escalation
+        (r"sudo\s+rm", "sudo delete"),
+        (r"sudo\s+chmod", "sudo permission change"),
+        (r"sudo\s+chown", "sudo ownership change"),
+        (r"sudo\s+bash", "sudo shell"),
+        (r"su\s+-", "switch to root"),
+
+        # SQL injection/destruction
+        (r"DROP\s+(TABLE|DATABASE|INDEX)", "SQL drop"),
+        (r"TRUNCATE\s+TABLE", "SQL truncate"),
+        (r"DELETE\s+FROM\s+\w+\s*(;|$)", "SQL delete without WHERE"),
+        (r"DELETE\s+FROM.*WHERE\s+(1|true)", "SQL delete all"),
+        (r"UPDATE\s+\w+\s+SET.*WHERE\s+(1|true)", "SQL update all"),
+
+        # Fork bombs and system attacks
+        (r":\(\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;", "fork bomb"),
+        (r"\bfork\s*\(\s*\)\s*while", "fork loop"),
+
+        # Network attacks
+        (r"nc\s+-l.*\|.*bash", "reverse shell"),
+        (r"bash\s+-i\s+>&\s+/dev/tcp", "bash reverse shell"),
+
+        # History/log tampering
+        (r"history\s+-c", "clear history"),
+        (r">\s*/var/log/", "overwrite system logs"),
+        (r"rm\s+.*\.bash_history", "delete bash history"),
+
+        # Git force operations
+        (r"git\s+push\s+.*--force", "git force push"),
+        (r"git\s+push\s+-f", "git force push"),
+        (r"git\s+reset\s+--hard", "git hard reset"),
     ]
 
     # =========================================================================

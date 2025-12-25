@@ -55,10 +55,19 @@ def load_config() -> dict:
 
 
 def save_config(config: dict):
-    """Save configuration to file."""
+    """Save configuration to file with secure permissions."""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    with open(CONFIG_FILE, 'w') as f:
-        json.dump(config, f, indent=2)
+
+    # Set restrictive umask before creating file
+    old_umask = os.umask(0o077)
+    try:
+        with open(CONFIG_FILE, 'w') as f:
+            json.dump(config, f, indent=2)
+    finally:
+        os.umask(old_umask)
+
+    # Ensure file is only readable by owner (0600)
+    os.chmod(CONFIG_FILE, 0o600)
     print(success(f"\nConfiguration saved to {CONFIG_FILE}"))
 
 

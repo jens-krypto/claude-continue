@@ -71,7 +71,19 @@ def setup_logging():
         os.makedirs(log_dir, exist_ok=True)
 
     try:
-        file_handler = logging.FileHandler(LOG_FILE)
+        # Set restrictive umask for log file creation
+        old_umask = os.umask(0o077)
+        try:
+            file_handler = logging.FileHandler(LOG_FILE)
+        finally:
+            os.umask(old_umask)
+
+        # Ensure log file has secure permissions (0600)
+        try:
+            os.chmod(LOG_FILE, 0o600)
+        except Exception:
+            pass  # May fail if file doesn't exist yet
+
         file_handler.setFormatter(logging.Formatter(log_format))
         file_handler.addFilter(NoiseFilter())
         handlers.append(file_handler)
@@ -171,13 +183,33 @@ async def main_iterm2(connection, start_web=True):
         await shutdown_event.wait()
 
     finally:
-        await manager.stop()
+        logger.info("Shutting down Claude Continue daemon...")
+        try:
+            await manager.stop()
+        except Exception as e:
+            logger.error(f"Error stopping session manager: {e}")
+
         if web_runner:
-            await stop_web_server(web_runner)
+            try:
+                await stop_web_server(web_runner)
+            except Exception as e:
+                logger.error(f"Error stopping web server: {e}")
+
         logger.info("Claude Continue daemon stopped")
-        # Force exit since iterm2.run_forever doesn't stop cleanly
-        import os
-        os._exit(0)
+
+        # Cancel any remaining tasks for clean shutdown
+        try:
+            loop = asyncio.get_event_loop()
+            pending = asyncio.all_tasks(loop)
+            for task in pending:
+                if task is not asyncio.current_task():
+                    task.cancel()
+        except Exception:
+            pass
+
+        # Use sys.exit for cleaner shutdown than os._exit
+        # This allows Python to run cleanup handlers
+        sys.exit(0)
 
 
 def main_test():
