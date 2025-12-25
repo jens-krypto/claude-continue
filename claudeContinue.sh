@@ -5,21 +5,24 @@
 #
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VENV_DIR="$(dirname "$SCRIPT_DIR")/venv"
+VENV_DIR="$SCRIPT_DIR/venv"
 
 # Colors
-CYAN='\033[0;36m'
+BLUE='\033[0;34m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo -e "${CYAN}"
-echo "╔═══════════════════════════════════════════╗"
-echo "║     CLAUDE CONTINUE by Anomaly Alpha      ║"
-echo "║     iTerm2 Automation for Claude Code     ║"
-echo "║             addicted.bot                  ║"
-echo "╚═══════════════════════════════════════════╝"
-echo -e "${NC}"
+export CLAUDE_CONTINUE_LOG_CONSOLE="${CLAUDE_CONTINUE_LOG_CONSOLE:-false}"
+export CLAUDE_CONTINUE_SHOW_BANNER="${CLAUDE_CONTINUE_SHOW_BANNER:-false}"
+
+if [[ "${CLAUDE_CONTINUE_SHOW_BANNER}" == "true" ]]; then
+    echo -e "${BLUE}╔═══════════════════════════════════════════╗${NC}"
+    echo -e "${BLUE}║${YELLOW}     CLAUDE CONTINUE by Anomaly Alpha      ${BLUE}║${NC}"
+    echo -e "${BLUE}║${YELLOW}     iTerm2 Automation for Claude Code     ${BLUE}║${NC}"
+    echo -e "${BLUE}║${YELLOW}             addicted.bot                  ${BLUE}║${NC}"
+    echo -e "${BLUE}╚═══════════════════════════════════════════╝${NC}"
+fi
 
 # Check if venv exists
 if [ ! -f "$VENV_DIR/bin/python" ]; then
@@ -31,16 +34,24 @@ fi
 # Check for arguments
 ARGS=""
 if [ "$1" == "--test" ]; then
-    echo -e "${GREEN}Running in test mode (no iTerm2 connection)${NC}"
+    if [[ "${CLAUDE_CONTINUE_SHOW_BANNER}" == "true" ]]; then
+        echo -e "${GREEN}Running in test mode (no iTerm2 connection)${NC}"
+    fi
     ARGS="--test"
 elif [ "$1" == "--debug" ]; then
-    echo -e "${GREEN}Running in debug mode${NC}"
+    if [[ "${CLAUDE_CONTINUE_SHOW_BANNER}" == "true" ]]; then
+        echo -e "${GREEN}Running in debug mode${NC}"
+    fi
     ARGS="--debug"
 elif [ "$1" == "--setup" ]; then
-    echo -e "${GREEN}Running setup wizard${NC}"
+    if [[ "${CLAUDE_CONTINUE_SHOW_BANNER}" == "true" ]]; then
+        echo -e "${GREEN}Running setup wizard${NC}"
+    fi
     ARGS="--setup"
 elif [ "$1" == "--no-web" ]; then
-    echo -e "${GREEN}Running without web GUI${NC}"
+    if [[ "${CLAUDE_CONTINUE_SHOW_BANNER}" == "true" ]]; then
+        echo -e "${GREEN}Running without web GUI${NC}"
+    fi
     ARGS="--no-web"
 elif [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
     echo "Usage: $0 [OPTIONS]"
@@ -58,7 +69,9 @@ fi
 
 # Start the daemon
 cd "$SCRIPT_DIR"
-echo -e "${GREEN}Starting Claude Continue daemon...${NC}"
-echo ""
+if [[ "${CLAUDE_CONTINUE_SHOW_BANNER}" == "true" ]]; then
+    echo -e "${GREEN}Starting Claude Continue daemon...${NC}"
+    echo ""
+fi
 
 exec "$VENV_DIR/bin/python" "$SCRIPT_DIR/src/daemon.py" $ARGS

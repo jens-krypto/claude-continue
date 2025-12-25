@@ -1,7 +1,7 @@
 # Claude Continue
 
 [![License: GPLv3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
 [![macOS](https://img.shields.io/badge/platform-macOS-lightgrey.svg)](https://www.apple.com/macos/)
 
 An iTerm2 daemon that monitors Claude Code sessions and automatically handles prompts, permissions, and continuations using smart regex patterns.
@@ -61,13 +61,16 @@ When you run Claude Code in iTerm2, this daemon:
 
 - macOS
 - iTerm2 (with Python API enabled)
-- Python 3.10+
+- Python 3.12
+- `claudeContinue.sh` requires a Python 3.12 venv named `venv` in the repo root
 
 ### Quick Install
 
 ```bash
 git clone https://github.com/jens-krypto/claude-continue.git
 cd claude-continue
+python3.12 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
 python src/daemon.py --setup
 ```
