@@ -1,22 +1,26 @@
 # Claude Continue
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![macOS](https://img.shields.io/badge/platform-macOS-lightgrey.svg)](https://www.apple.com/macos/)
+
 An iTerm2 daemon that monitors Claude Code sessions and automatically handles prompts, permissions, and continuations using smart regex patterns.
 
 ## What It Does
 
 When you run Claude Code in iTerm2, this daemon:
 
-1. **Auto-approves permission prompts** - When Claude asks "Claude wants to edit file.py", automatically presses `1` to approve
+1. **Auto-approves permission prompts** - When Claude asks "Do you want to allow this operation?", automatically approves safe operations
 2. **Sends continuation commands** - When Claude stops and asks "Continue?", automatically sends `continue`
-3. **Answers questions intelligently** - Uses smart regex patterns to answer common questions
+3. **Answers questions intelligently** - Uses smart regex patterns to handle common prompts
 
 ## Features
 
-- **Fast & Offline** - No API calls, instant responses
-- **Zero Dependencies** - Only requires iTerm2 Python API + aiohttp for web GUI
+- **Fast & Offline** - No API calls, instant local responses
+- **Lightweight** - Only requires iTerm2 Python API + aiohttp for web GUI
 - **Smart Patterns** - Handles common Claude Code prompts intelligently
 - **Safe Defaults** - Blocks dangerous operations (rm -rf, etc.)
-- **Web Control Panel** - Anomaly Alpha themed GUI on port 7777
+- **Web Control Panel** - Monitor and control sessions via browser
 
 ## Architecture
 
@@ -59,9 +63,10 @@ When you run Claude Code in iTerm2, this daemon:
 - iTerm2 (with Python API enabled)
 - Python 3.10+
 
-### Quick Install (with Setup Wizard)
+### Quick Install
 
 ```bash
+git clone https://github.com/jens-krypto/claude-continue.git
 cd claude-continue
 pip install -r requirements.txt
 python src/daemon.py --setup
@@ -69,7 +74,7 @@ python src/daemon.py --setup
 
 The interactive wizard will guide you through:
 1. **Behavior Mode** - Full Auto, Semi Auto, Cautious, or Monitor Only
-2. **Timing Settings** - Response speed
+2. **Timing Settings** - Response speed configuration
 3. **Logging** - Debug mode toggle
 4. **iTerm2 Installation** - Optional AutoLaunch setup
 
@@ -94,7 +99,7 @@ pip install -r requirements.txt
 3. Create AutoLaunch symlink:
 ```bash
 mkdir -p ~/Library/Application\ Support/iTerm2/Scripts/AutoLaunch
-ln -s /path/to/claude-continue ~/Library/Application\ Support/iTerm2/Scripts/AutoLaunch/
+ln -s $(pwd) ~/Library/Application\ Support/iTerm2/Scripts/AutoLaunch/claude-continue
 ```
 
 4. Restart iTerm2
@@ -103,7 +108,7 @@ ln -s /path/to/claude-continue ~/Library/Application\ Support/iTerm2/Scripts/Aut
 
 ### Automatic Mode (Recommended)
 
-After installation, the daemon starts automatically when iTerm2 launches. It monitors all terminal sessions.
+After installation, the daemon starts automatically when iTerm2 launches. It monitors all terminal sessions for Claude Code activity.
 
 ### Manual Mode
 
@@ -129,7 +134,7 @@ After installation, the daemon starts automatically when iTerm2 launches. It mon
 
 ## Web Control Panel
 
-The daemon includes a web GUI for controlling sessions, available at:
+The daemon includes a web GUI for controlling sessions:
 
 **http://localhost:7777**
 
@@ -139,14 +144,6 @@ The daemon includes a web GUI for controlling sessions, available at:
 - **Toggle Automation** - Enable/disable automation per session
 - **Live Settings** - Change auto-approve, auto-continue, answer questions on the fly
 - **Action Tracking** - See how many prompts have been handled per session
-
-### Anomaly Alpha Theme
-
-The web GUI uses the Anomaly Alpha design system with:
-- Pink/gold/orange gradient background
-- Orbitron font for headings
-- Cyan accent colors
-- Social links to X, Telegram, and website
 
 ### Disabling the Web GUI
 
@@ -178,6 +175,7 @@ export CLAUDE_CONTINUE_DEBUG="false"            # Extra verbose logging
 ```
 claude-continue/
 ├── README.md                 # This file
+├── LICENSE                   # MIT License
 ├── requirements.txt          # Python dependencies
 ├── config/
 │   ├── __init__.py
@@ -232,7 +230,7 @@ claude-continue/
 
 1. Run test mode: `./scripts/run.sh --test`
 2. Check pattern detector output
-3. Adjust patterns in `pattern_detector.py`
+3. Adjust patterns in `src/pattern_detector.py`
 
 ## Uninstall
 
@@ -240,6 +238,16 @@ claude-continue/
 ./scripts/uninstall.sh
 ```
 
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
 ## License
 
-Private - Anomaly Alpha project
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
