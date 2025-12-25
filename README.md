@@ -238,6 +238,16 @@ claude-continue/
 ./scripts/uninstall.sh
 ```
 
+## About Anomaly Alpha
+
+This project is brought to you by [Anomaly Alpha](https://addicted.bot), an AI-focused crypto project building tools and infrastructure for the intersection of artificial intelligence and blockchain technology.
+
+We've open-sourced Claude Continue to share it with the developer community. If you find it useful, feel free to check out what else we're building.
+
+- Website: [addicted.bot](https://addicted.bot)
+- X: [@AddictedAnomaly](https://x.com/AddictedAnomaly)
+- Telegram: [t.me/AnomalyAlpha](https://t.me/AnomalyAlpha)
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
