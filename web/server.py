@@ -605,6 +605,37 @@ HTML_TEMPLATE = """
             text-align: center;
         }
 
+        .risk-badge {
+            font-size: 0.55rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .risk-badge.high {
+            background: rgba(255, 71, 87, 0.3);
+            color: #ff4757;
+            border: 1px solid rgba(255, 71, 87, 0.5);
+        }
+
+        .risk-badge.medium {
+            background: rgba(255, 193, 7, 0.3);
+            color: #ffc107;
+            border: 1px solid rgba(255, 193, 7, 0.5);
+        }
+
+        .risk-badge.medium-high {
+            background: rgba(255, 152, 0, 0.3);
+            color: #ff9800;
+            border: 1px solid rgba(255, 152, 0, 0.5);
+        }
+
+        .toggle-row[title] {
+            cursor: help;
+        }
+
         /* Control Section */
         .control-section {
             background: rgba(0,0,0,0.2);
@@ -731,29 +762,29 @@ HTML_TEMPLATE = """
                 <span class="status-title">Daemon Status</span>
                 <span class="status-badge" id="daemonStatus">Loading...</span>
             </div>
-            <div class="toggle-row">
-                <span class="toggle-label">Auto-Approve Permissions</span>
+            <div class="toggle-row" title="⚠️ HIGH RISK: Claude will automatically approve all permission requests. Files may be modified, deleted, or commands executed without your review. Only enable on non-critical projects.">
+                <span class="toggle-label">Auto-Approve Permissions <span class="risk-badge high">HIGH RISK</span></span>
                 <label class="toggle-switch">
                     <input type="checkbox" id="autoApprove" onchange="updateSetting('auto_approve', this.checked)">
                     <span class="toggle-slider"></span>
                 </label>
             </div>
-            <div class="toggle-row">
-                <span class="toggle-label">Auto-Continue</span>
+            <div class="toggle-row" title="⚡ MEDIUM RISK: Claude will continue working without pausing for confirmation. Long operations may complete before you can review them.">
+                <span class="toggle-label">Auto-Continue <span class="risk-badge medium">MEDIUM</span></span>
                 <label class="toggle-switch">
                     <input type="checkbox" id="autoContinue" onchange="updateSetting('auto_continue', this.checked)">
                     <span class="toggle-slider"></span>
                 </label>
             </div>
-            <div class="toggle-row">
-                <span class="toggle-label">Answer Questions</span>
+            <div class="toggle-row" title="⚠️ HIGH RISK: Answers are based on simple pattern matching, not understanding. May provide wrong answers to critical decisions like file names or options.">
+                <span class="toggle-label">Answer Questions <span class="risk-badge high">HIGH RISK</span></span>
                 <label class="toggle-switch">
                     <input type="checkbox" id="answerQuestions" onchange="updateSetting('answer_questions', this.checked)">
                     <span class="toggle-slider"></span>
                 </label>
             </div>
-            <div class="toggle-row">
-                <span class="toggle-label">Auto Follow-up (when idle)</span>
+            <div class="toggle-row" title="⚡ MEDIUM-HIGH RISK: May send prompts to Claude when you step away, potentially triggering unwanted actions. Only use during active monitoring.">
+                <span class="toggle-label">Auto Follow-up <span class="risk-badge medium-high">MEDIUM-HIGH</span></span>
                 <label class="toggle-switch">
                     <input type="checkbox" id="autoFollowup" onchange="updateSetting('auto_followup', this.checked)">
                     <span class="toggle-slider"></span>

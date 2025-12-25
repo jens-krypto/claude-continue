@@ -202,6 +202,105 @@ claude-continue/
     └── test_smart_responder.py
 ```
 
+## Security Risks & Considerations
+
+```
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  ⚠️  WARNING: This software automates command execution.                  ║
+║      You run this service entirely at your own risk.                      ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+```
+
+Before enabling any automation level, please understand the implications:
+
+### Risk Overview
+
+```
+┌─────────────────────┬────────────────┬──────────────────────────────────────┐
+│ Setting             │ Risk Level     │ What Could Go Wrong                  │
+├─────────────────────┼────────────────┼──────────────────────────────────────┤
+│ Auto-Approve        │ HIGH           │ Unintended file changes/deletions    │
+│ Auto-Continue       │ MEDIUM         │ Operations continue without review   │
+│ Answer Questions    │ HIGH           │ Wrong answers to important decisions │
+│ Auto Follow-up      │ MEDIUM-HIGH    │ Unwanted actions in idle sessions    │
+└─────────────────────┴────────────────┴──────────────────────────────────────┘
+```
+
+### Auto-Approve Permissions
+
+**What it does:** Automatically presses "1" (Yes) when Claude asks for permission to run commands.
+
+**Real risks:**
+- Claude might delete files you didn't want deleted
+- Could modify code in unexpected ways
+- May execute shell commands with unintended side effects
+- Git operations (commits, pushes) happen without review
+
+**When to enable:** Only when working on non-critical code where you're comfortable with Claude having full autonomy. Never use on production systems.
+
+**Recommendation:** Start with this OFF. Review the patterns in `smart_responder.py` and the dangerous command blocklist before enabling.
+
+### Auto-Continue
+
+**What it does:** Sends "continue" when Claude pauses or asks if you want it to proceed.
+
+**Real risks:**
+- Long refactoring operations continue without checkpoints
+- May continue down a wrong path without your course correction
+- Resource-intensive operations run to completion
+
+**When to enable:** When you trust Claude's current direction and want uninterrupted work sessions.
+
+**Recommendation:** Generally safer than Auto-Approve, but review Claude's plan before enabling.
+
+### Answer Questions
+
+**What it does:** Uses regex patterns to automatically answer Claude's questions (like "Which option?" → "1").
+
+**Real risks:**
+- May choose wrong options for important decisions
+- Could provide incorrect file names or paths
+- Answers are based on simple pattern matching, not understanding
+
+**When to enable:** Only for very routine tasks where the questions are predictable.
+
+**Recommendation:** Keep OFF. This is disabled by default for good reason.
+
+### Auto Follow-up
+
+**What it does:** Sends prompts to Claude when it appears idle (e.g., "What's next?").
+
+**Real risks:**
+- May trigger unwanted actions when you stepped away
+- Could start new tasks you didn't intend
+- May confuse Claude's context
+
+**When to enable:** Only during active pair-programming sessions where you're monitoring.
+
+**Recommendation:** Keep OFF unless actively working.
+
+### General Safety Tips
+
+1. **Start conservative** - Begin with all settings OFF, enable one at a time
+2. **Monitor the logs** - Check `~/Library/Logs/claude-continue.log` regularly
+3. **Use per-session controls** - Disable automation for sensitive sessions via the web GUI
+4. **Review the blocklist** - Check `src/smart_responder.py` for blocked dangerous commands
+5. **Keep backups** - Use git and don't auto-approve in repos without commits
+6. **Test first** - Run with `--test` flag to see pattern matching without actions
+
+### What We Block
+
+The daemon attempts to block obviously dangerous commands like:
+- `rm -rf /` and similar destructive operations
+- `curl ... | bash` (remote code execution)
+- SQL DROP/DELETE statements
+- Fork bombs and reverse shells
+- Git force pushes
+
+However, **no blocklist is perfect**. Novel dangerous commands may slip through.
+
+---
+
 ## Smart Responder Patterns
 
 ### Safe Operations (Auto-Approved)
