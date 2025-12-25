@@ -1,6 +1,6 @@
 # Claude Continue
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: GPLv3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![macOS](https://img.shields.io/badge/platform-macOS-lightgrey.svg)](https://www.apple.com/macos/)
 
@@ -175,7 +175,7 @@ export CLAUDE_CONTINUE_DEBUG="false"            # Extra verbose logging
 ```
 claude-continue/
 ├── README.md                 # This file
-├── LICENSE                   # MIT License
+├── LICENSE                   # GPL v3
 ├── requirements.txt          # Python dependencies
 ├── config/
 │   ├── __init__.py
@@ -260,4 +260,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GPL v3 License - see the [LICENSE](LICENSE) file for details.
