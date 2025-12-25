@@ -1068,7 +1068,7 @@ def create_app():
 async def start_web_server():
     """Start the web server."""
     app = create_app()
-    runner = web.AppRunner(app, access_log=None, access_log_class=None)
+    runner = web.AppRunner(app, access_log=None)
     await runner.setup()
     site = web.TCPSite(runner, '0.0.0.0', WEB_PORT)
     await site.start()

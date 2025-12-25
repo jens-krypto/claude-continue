@@ -115,6 +115,7 @@ async def main_iterm2(connection, start_web=True):
     app = await iterm2.async_get_app(connection)
     manager = SessionManager(app)
     web_runner = None
+    web_url = f"http://localhost:{WEB_PORT}"
 
     # Handle shutdown signals
     shutdown_event = asyncio.Event()
@@ -141,16 +142,26 @@ async def main_iterm2(connection, start_web=True):
             # Check if port is already in use
             if is_port_in_use(WEB_PORT):
                 logger.warning(f"Port {WEB_PORT} already in use - web GUI disabled")
-                logger.info(f"Another Claude Continue instance may be running. Visit http://localhost:{WEB_PORT}")
+                logger.info(f"Another Claude Continue instance may be running. Visit {web_url}")
+                print(f"Web GUI already running at {web_url}")
+                try:
+                    webbrowser.open(web_url)
+                except Exception:
+                    pass
                 start_web = False
             else:
                 try:
                     web_runner = await start_web_server()
-                    logger.info(f"Web GUI available at http://localhost:{WEB_PORT}")
+                    logger.info(f"Web GUI available at {web_url}")
+                    print(f"Web GUI running at {web_url}")
                     # Auto-open browser
-                    webbrowser.open(f"http://localhost:{WEB_PORT}")
+                    try:
+                        webbrowser.open(web_url)
+                    except Exception:
+                        pass
                 except Exception as e:
                     logger.warning(f"Could not start web GUI: {e}")
+                    print(f"Web GUI failed to start: {e}")
 
         await manager.start()
         logger.info("Claude Continue daemon is running")
@@ -221,14 +232,20 @@ def main_test():
     logger.info("Test mode completed")
 
 
-def print_startup_banner():
+def print_startup_banner(show_web: bool = True):
     """Print the startup banner."""
-    BLUE_BG = '\033[44m'
-    YELLOW_BG = '\033[43m'
-    BLUE_FG = '\033[97m'
-    YELLOW_FG = '\033[30m'
+    BORDER = '\033[94m'
+    TEXT = '\033[97m'
+    ACCENT = '\033[92m'
     RESET = '\033[0m'
-    banner = """
+    def center_line(text: str) -> str:
+        return f"║{text.center(69)}║"
+
+    web_gui_line = center_line("Web GUI: http://localhost:7777") if show_web else center_line("")
+    copyright_line = center_line("Copyright Anomaly Alpha Labs 2025")
+    tagline_line = center_line("iTerm2 Automation for Claude Code")
+    site_line = center_line("addicted.bot")
+    banner = f"""
 ╔═════════════════════════════════════════════════════════════════════╗
 ║                                                                     ║
 ║    ██████╗██╗      █████╗ ██╗   ██╗██████╗ ███████╗                 ║
@@ -244,30 +261,26 @@ def print_startup_banner():
 ║  ██║     ██║   ██║██║╚██╗██║   ██║   ██║██║╚██╗██║██║   ██║██╔══╝   ║
 ║  ╚██████╗╚██████╔╝██║ ╚████║   ██║   ██║██║ ╚████║╚██████╔╝███████╗ ║
 ║   ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝   ╚═╝   ╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚══════╝ ║
-║                                                                     ║
-║                        by Anomaly Alpha                             ║
-║                iTerm2 Automation for Claude Code                    ║
-║                        addicted.bot                                 ║
+{web_gui_line}
+{copyright_line}
+{tagline_line}
+{site_line}
 ╚═════════════════════════════════════════════════════════════════════╝
 """
-    lines = banner.strip("\n").splitlines()
-    height = len(lines)
-    width = max(len(line) for line in lines)
-    v_start = int(width * 5 / 16)
-    v_width = max(2, int(width * 2 / 16))
-    h_start = int(height * 4 / 10)
-    h_height = max(1, int(height * 2 / 10))
-
     print()
-    for row, line in enumerate(lines):
-        padded = line.ljust(width)
-        if h_start <= row < h_start + h_height:
-            print(f"{YELLOW_BG}{YELLOW_FG}{padded}{RESET}")
+    for line in banner.strip("\n").splitlines():
+        if line.startswith(("╔", "╚")):
+            print(f"{BORDER}{line}{RESET}")
             continue
-        left = padded[:v_start]
-        mid = padded[v_start:v_start + v_width]
-        right = padded[v_start + v_width:]
-        print(f"{BLUE_BG}{BLUE_FG}{left}{YELLOW_BG}{YELLOW_FG}{mid}{BLUE_BG}{BLUE_FG}{right}{RESET}")
+        if line.startswith("║") and line.endswith("║"):
+            inner = line[1:-1]
+            if any(token in inner for token in ("Web GUI", "Copyright", "addicted.bot")):
+                inner_color = ACCENT
+            else:
+                inner_color = TEXT
+            print(f"{BORDER}║{inner_color}{inner}{BORDER}║{RESET}")
+            continue
+        print(f"{TEXT}{line}{RESET}")
 
 
 def run_daemon(start_web=True):
@@ -329,7 +342,7 @@ def main():
 
     args = parser.parse_args()
 
-    print_startup_banner()
+    print_startup_banner(show_web=not args.no_web)
 
     if args.version:
         from src import __version__
