@@ -311,8 +311,8 @@ class SessionMonitor:
                 logger.warning(f"Blocked response - Claude not verified active")
                 return
 
-            # Add newline if not present (to submit the response)
-            if not text.endswith('\n') and text not in ['1', '2', '3']:
+            # Add newline to submit the response (Enter key)
+            if not text.endswith('\n'):
                 text = text + '\n'
             await self.session.async_send_text(text)
             logger.debug(f"Sent to session {self.state.session_id}: {text[:50]}")

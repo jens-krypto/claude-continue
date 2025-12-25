@@ -615,25 +615,74 @@ HTML_TEMPLATE = """
         }
 
         .risk-badge.high {
-            background: rgba(255, 71, 87, 0.3);
-            color: #ff4757;
-            border: 1px solid rgba(255, 71, 87, 0.5);
+            background: #dc3545;
+            color: #fff;
+            text-shadow: 0 1px 1px rgba(0,0,0,0.3);
         }
 
         .risk-badge.medium {
-            background: rgba(255, 193, 7, 0.3);
-            color: #ffc107;
-            border: 1px solid rgba(255, 193, 7, 0.5);
+            background: #ffc107;
+            color: #000;
         }
 
         .risk-badge.medium-high {
-            background: rgba(255, 152, 0, 0.3);
-            color: #ff9800;
-            border: 1px solid rgba(255, 152, 0, 0.5);
+            background: #fd7e14;
+            color: #fff;
+            text-shadow: 0 1px 1px rgba(0,0,0,0.3);
         }
 
-        .toggle-row[title] {
+        /* Custom CSS Tooltips */
+        .toggle-row {
+            position: relative;
+        }
+
+        .toggle-row[data-tooltip] {
             cursor: help;
+        }
+
+        .toggle-row[data-tooltip]::before {
+            content: '';
+            position: absolute;
+            bottom: calc(100% + 5px);
+            left: 50%;
+            transform: translateX(-50%);
+            border: 8px solid transparent;
+            border-top-color: rgba(0, 0, 0, 0.95);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s;
+            z-index: 101;
+            pointer-events: none;
+        }
+
+        .toggle-row[data-tooltip]::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: calc(100% + 20px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.95);
+            color: #fff;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            width: 300px;
+            max-width: 90vw;
+            text-align: left;
+            line-height: 1.5;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s;
+            z-index: 100;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            pointer-events: none;
+        }
+
+        .toggle-row[data-tooltip]:hover::before,
+        .toggle-row[data-tooltip]:hover::after {
+            opacity: 1;
+            visibility: visible;
         }
 
         /* Control Section */
@@ -762,28 +811,28 @@ HTML_TEMPLATE = """
                 <span class="status-title">Daemon Status</span>
                 <span class="status-badge" id="daemonStatus">Loading...</span>
             </div>
-            <div class="toggle-row" title="⚠️ HIGH RISK: Claude will automatically approve all permission requests. Files may be modified, deleted, or commands executed without your review. Only enable on non-critical projects.">
+            <div class="toggle-row" data-tooltip="HIGH RISK: Claude will automatically approve all permission requests. Files may be modified or deleted without your review.">
                 <span class="toggle-label">Auto-Approve Permissions <span class="risk-badge high">HIGH RISK</span></span>
                 <label class="toggle-switch">
                     <input type="checkbox" id="autoApprove" onchange="updateSetting('auto_approve', this.checked)">
                     <span class="toggle-slider"></span>
                 </label>
             </div>
-            <div class="toggle-row" title="⚡ MEDIUM RISK: Claude will continue working without pausing for confirmation. Long operations may complete before you can review them.">
+            <div class="toggle-row" data-tooltip="MEDIUM RISK: Claude will continue working without pausing. Long operations complete without checkpoints.">
                 <span class="toggle-label">Auto-Continue <span class="risk-badge medium">MEDIUM</span></span>
                 <label class="toggle-switch">
                     <input type="checkbox" id="autoContinue" onchange="updateSetting('auto_continue', this.checked)">
                     <span class="toggle-slider"></span>
                 </label>
             </div>
-            <div class="toggle-row" title="⚠️ HIGH RISK: Answers are based on simple pattern matching, not understanding. May provide wrong answers to critical decisions like file names or options.">
+            <div class="toggle-row" data-tooltip="HIGH RISK: Uses pattern matching, not understanding. May give wrong answers to important decisions.">
                 <span class="toggle-label">Answer Questions <span class="risk-badge high">HIGH RISK</span></span>
                 <label class="toggle-switch">
                     <input type="checkbox" id="answerQuestions" onchange="updateSetting('answer_questions', this.checked)">
                     <span class="toggle-slider"></span>
                 </label>
             </div>
-            <div class="toggle-row" title="⚡ MEDIUM-HIGH RISK: May send prompts to Claude when you step away, potentially triggering unwanted actions. Only use during active monitoring.">
+            <div class="toggle-row" data-tooltip="MEDIUM-HIGH RISK: Sends prompts when Claude is idle. May trigger actions while you're away.">
                 <span class="toggle-label">Auto Follow-up <span class="risk-badge medium-high">MEDIUM-HIGH</span></span>
                 <label class="toggle-switch">
                     <input type="checkbox" id="autoFollowup" onchange="updateSetting('auto_followup', this.checked)">
