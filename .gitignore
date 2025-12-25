@@ -27,3 +27,7 @@ Thumbs.db
 # Environment
 .env
 *.log
+
+# Claude/AI config files
+CLAUDE.md
+AGENTS.md
