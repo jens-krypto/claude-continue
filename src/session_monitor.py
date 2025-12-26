@@ -260,7 +260,9 @@ class SessionMonitor:
 
         # Send response if we have one
         if response:
-            await self._send_response(response)
+            # Pass the detected prompt to skip redundant verification
+            # (we just detected Claude is active, no need to re-check)
+            await self._send_response(response, prompt)
             self.detector.mark_handled(prompt)
             self.state.last_action_time = time.time()
             self.state.action_count += 1
@@ -303,13 +305,21 @@ class SessionMonitor:
             logger.error(f"Error verifying Claude status: {e}")
             return False
 
-    async def _send_response(self, text: str):
-        """Send text to the session after verifying Claude is active."""
+    async def _send_response(self, text: str, prompt: Optional[DetectedPrompt] = None):
+        """Send text to the session.
+
+        Args:
+            text: The text to send
+            prompt: If provided, we just detected this prompt so we trust
+                   Claude is active (skip redundant verification)
+        """
         try:
-            # Security: verify Claude is still active before sending
-            if not await self._verify_claude_active():
-                logger.warning(f"Blocked response - Claude not verified active")
-                return
+            # If we have a detected prompt, we trust Claude is active
+            # (we just detected it moments ago). Only verify if no prompt context.
+            if prompt is None:
+                if not await self._verify_claude_active():
+                    logger.warning(f"Blocked response - Claude not verified active")
+                    return
 
             # Add newline to submit the response (Enter key)
             if not text.endswith('\n'):
@@ -326,7 +336,8 @@ class SessionManager:
     def __init__(self, app):  # app: iterm2.App
         self.app = app
         self.monitors: Dict[str, SessionMonitor] = {}
-        self.detector = PatternDetector()
+        # Note: Each session gets its own PatternDetector to avoid
+        # cross-session interference with dedup tracking
         self.responder = SmartResponder()
         self._discovery_task: Optional[asyncio.Task] = None
 
@@ -513,9 +524,11 @@ class SessionManager:
 
         logger.debug(f"Claude Code {'detected' if status == 'detected' else 'forced'} in session: {name}")
 
+        # Create a NEW PatternDetector for each session to avoid
+        # cross-session interference with dedup tracking (_last_detected)
         monitor = SessionMonitor(
             session=session,
-            detector=self.detector,
+            detector=PatternDetector(),  # Each session gets its own detector
             responder=self.responder,
         )
         self.monitors[session.session_id] = monitor
