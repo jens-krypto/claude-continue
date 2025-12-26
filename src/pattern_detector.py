@@ -63,22 +63,21 @@ class PatternDetector:
     ]
 
     # Patterns that indicate Claude is waiting for continuation
+    # Be specific but allow natural phrasing
     CONTINUATION_PATTERNS = [
-        r"Stopped",
+        # Claude Code specific - "Stopped" on its own line or with icon
+        r"^\s*Stopped\s*$",  # "Stopped" on its own line (with optional whitespace)
+        r"^\s*⏹\s*Stopped",  # With stop icon
         r"Waiting for (input|response)",
         r"Press (any key|Enter) to continue",
-        r"Continue\?",
+        r"Continue\?\s*$",  # Ends with Continue?
         r"Do you want me to continue",
         r"Shall I (continue|proceed|go on)",
         r"Would you like me to (continue|proceed)",
-        r"Ready to (continue|proceed)",
-        r"\.\.\.$",  # Ends with ellipsis (thinking/waiting)
 
         # Swedish continuation patterns
         r"Vill du att jag fortsätter",
         r"Ska jag fortsätta",
-        r"Fortsätta\?",
-        r"Väntar på (svar|input)",
     ]
 
     # Patterns that indicate Claude has completed a task and is idle
@@ -232,6 +231,10 @@ class PatternDetector:
             # This looks like a real permission dialog
             # Also check for permission header patterns
             has_permission_header = any(p.search(last_lines) for p in self._permission_re[:2])  # First 2 patterns are headers
+
+            # DEBUG: Log what we matched
+            logger.info(f"Permission detected! Matched options: {yes_no_options}")
+            logger.debug(f"Context (last 10 lines):\n{last_lines}")
 
             return DetectedPrompt(
                 prompt_type=PromptType.PERMISSION,
