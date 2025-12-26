@@ -9,10 +9,45 @@ import logging
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Set
 from aiohttp import web
 
 logger = logging.getLogger(__name__)
+
+# File to persist disabled session names across restarts
+CONFIG_DIR = Path.home() / ".config" / "claude-continue"
+DISABLED_SESSIONS_FILE = CONFIG_DIR / "disabled_sessions.json"
+
+# Set of disabled session names (persisted to disk)
+_disabled_session_names: Set[str] = set()
+
+
+def _load_disabled_sessions():
+    """Load disabled session names from disk."""
+    global _disabled_session_names
+    try:
+        if DISABLED_SESSIONS_FILE.exists():
+            with open(DISABLED_SESSIONS_FILE) as f:
+                data = json.load(f)
+                _disabled_session_names = set(data.get("disabled_names", []))
+                logger.debug(f"Loaded {len(_disabled_session_names)} disabled session names")
+    except Exception as e:
+        logger.warning(f"Could not load disabled sessions: {e}")
+        _disabled_session_names = set()
+
+
+def _save_disabled_sessions():
+    """Save disabled session names to disk."""
+    try:
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        with open(DISABLED_SESSIONS_FILE, 'w') as f:
+            json.dump({"disabled_names": list(_disabled_session_names)}, f)
+    except Exception as e:
+        logger.warning(f"Could not save disabled sessions: {e}")
+
+
+# Load on module import
+_load_disabled_sessions()
 
 # CORS middleware - only allow same-origin requests
 ALLOWED_ORIGIN = 'http://localhost:7777'
@@ -74,6 +109,10 @@ def update_session(session_id: str, name: str, enabled: bool = True, is_claude_s
 
     status can be: "scanning", "detected", "not_detected", "forced"
     """
+    # Check if this session name was previously disabled
+    if name in _disabled_session_names:
+        enabled = False
+
     if session_id not in _session_state["sessions"]:
         _session_state["sessions"][session_id] = {
             "name": name,
@@ -86,7 +125,9 @@ def update_session(session_id: str, name: str, enabled: bool = True, is_claude_s
         }
     else:
         _session_state["sessions"][session_id]["name"] = name
-        _session_state["sessions"][session_id]["enabled"] = enabled
+        # Only update enabled if not in disabled list (to preserve user preference)
+        if name not in _disabled_session_names:
+            _session_state["sessions"][session_id]["enabled"] = enabled
         _session_state["sessions"][session_id]["is_claude"] = is_claude_session
         # Don't override status if force_monitor is active
         if not _session_state["sessions"][session_id].get("force_monitor"):
@@ -1378,9 +1419,24 @@ async def handle_session_toggle(request):
             return web.json_response({"error": "Invalid session ID format"}, status=400)
 
         data = await request.json()
+        enabled = bool(data.get("enabled", True))
+
         async with _state_lock:
             if session_id in _session_state["sessions"]:
-                _session_state["sessions"][session_id]["enabled"] = bool(data.get("enabled", True))
+                session_name = _session_state["sessions"][session_id].get("name", "")
+                _session_state["sessions"][session_id]["enabled"] = enabled
+
+                # Persist the user's preference by session name
+                if session_name:
+                    if enabled:
+                        # Remove from disabled list
+                        _disabled_session_names.discard(session_name)
+                    else:
+                        # Add to disabled list
+                        _disabled_session_names.add(session_name)
+                    _save_disabled_sessions()
+                    logger.debug(f"Session '{session_name}' {'enabled' if enabled else 'disabled'} (persisted)")
+
         return web.json_response({"success": True})
     except Exception as e:
         return web.json_response({"error": str(e)}, status=400)

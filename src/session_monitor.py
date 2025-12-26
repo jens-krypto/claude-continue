@@ -339,12 +339,10 @@ class SessionMonitor:
                     logger.warning(f"Blocked response - Claude not verified active")
                     return
 
-            # Add newline to submit the response (Enter key)
-            # Exception: single-digit menu selections ('1', '2', '3') don't need Enter
-            # Claude Code's TUI menu responds to single keypress immediately
-            if not text.endswith('\n') and text not in ['1', '2', '3']:
-                text = text + '\n'
+            # Send text first, then Enter separately
             await self.session.async_send_text(text)
+            await asyncio.sleep(0.05)  # Small delay
+            await self.session.async_send_text('\n')  # Send Enter
             logger.debug(f"Sent to session {self.state.session_id}: {text[:50]}")
         except Exception as e:
             logger.error(f"Error sending response: {e}")
