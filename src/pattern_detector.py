@@ -203,19 +203,39 @@ class PatternDetector:
         return None
 
     def _check_permission(self, recent_text: str, full_context: str) -> Optional[DetectedPrompt]:
-        """Check for permission prompts (Yes/No dialogs)."""
-        for pattern in self._permission_re:
-            if match := pattern.search(recent_text):
-                # Check if this looks like a numbered option dialog
-                has_options = bool(re.search(r'^\s*[1-3]\.', recent_text, re.MULTILINE))
+        """Check for permission prompts (Yes/No dialogs).
 
-                return DetectedPrompt(
-                    prompt_type=PromptType.PERMISSION,
-                    text=match.group(0),
-                    context=recent_text,
-                    suggested_response="1",  # Default to approve
-                    confidence=0.9 if has_options else 0.7,
-                )
+        Claude Code permission prompts look like:
+        ⏺ Claude wants to run this Bash command:
+          ls -la
+
+        1. Yes, and auto-approve all Bash
+        2. Yes
+        3. No
+
+        We need to be strict to avoid false positives from numbered lists in output.
+        """
+        # Look for the last few lines to find the actual prompt area
+        lines = recent_text.strip().split('\n')
+        last_lines = '\n'.join(lines[-10:])  # Focus on last 10 lines
+
+        # STRICT CHECK: Must have numbered options with Yes/No at START of line
+        # Pattern: "1. Yes" or "2. No" etc at line start
+        yes_no_options = re.findall(r'^\s*[1-3]\.\s*(Yes|No|Ja|Nej)', last_lines, re.MULTILINE | re.IGNORECASE)
+
+        if len(yes_no_options) >= 2:  # Need at least 2 Yes/No options to be a real prompt
+            # This looks like a real permission dialog
+            # Also check for permission header patterns
+            has_permission_header = any(p.search(last_lines) for p in self._permission_re[:2])  # First 2 patterns are headers
+
+            return DetectedPrompt(
+                prompt_type=PromptType.PERMISSION,
+                text="Permission prompt detected",
+                context=last_lines,
+                suggested_response="1",  # Default to approve
+                confidence=0.95 if has_permission_header else 0.85,
+            )
+
         return None
 
     def _check_continuation(self, recent_text: str, full_context: str) -> Optional[DetectedPrompt]:
