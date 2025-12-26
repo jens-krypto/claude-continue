@@ -258,6 +258,17 @@ class PatternDetector:
 
     def _check_question(self, recent_text: str, full_context: str) -> Optional[DetectedPrompt]:
         """Check for open-ended questions."""
+        # Don't detect questions if there's a permission dialog on screen
+        # (e.g., "Type here to tell Claude what to do differently" is NOT a standalone question)
+        lines = recent_text.strip().split('\n')
+        last_lines = '\n'.join(lines[-15:])
+        has_permission_context = bool(re.search(
+            r'^[\s❯]*[1-3]\.\s*(Yes|No|Ja|Nej|Allow|Reject)',
+            last_lines, re.MULTILINE | re.IGNORECASE
+        ))
+        if has_permission_context:
+            return None  # Skip question detection in permission dialogs
+
         for pattern in self._question_re:
             if match := pattern.search(recent_text):
                 # Don't match questions that are part of code
