@@ -247,13 +247,22 @@ class PatternDetector:
         return None
 
     def _check_continuation(self, recent_text: str, full_context: str) -> Optional[DetectedPrompt]:
-        """Check for continuation prompts."""
+        """Check for continuation prompts.
+
+        Only looks at the VERY last few lines to avoid matching text
+        in conversation history (like when Claude writes about continuing).
+        """
+        # Only check the last 3 lines - continuation prompts appear at bottom
+        lines = recent_text.strip().split('\n')
+        last_lines = '\n'.join(lines[-3:])
+
         for pattern in self._continuation_re:
-            if match := pattern.search(recent_text):
+            if match := pattern.search(last_lines):
+                logger.info(f"Continuation detected: {match.group(0)}")
                 return DetectedPrompt(
                     prompt_type=PromptType.CONTINUATION,
                     text=match.group(0),
-                    context=recent_text,
+                    context=last_lines,
                     suggested_response="continue",
                     confidence=0.8,
                 )
