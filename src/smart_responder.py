@@ -278,11 +278,12 @@ class SmartResponder:
                     reason=f"Matched pattern: {pattern.pattern[:50]}"
                 )
 
-        # Fallback: generic continue/yes response
+        # Fallback: be cautious with generic responses
+        # Add [AUTO] prefix to indicate automated response
         return SmartResponse(
-            response="yes",
-            confidence=0.3,
-            reason="Fallback: no specific pattern matched"
+            response="[AUTO] I'm not sure - please clarify what you need",
+            confidence=0.2,
+            reason="Fallback: no specific pattern matched - being cautious"
         )
 
     def get_response(self, prompt_text: str, context: str = "") -> str:

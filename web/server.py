@@ -92,8 +92,8 @@ _session_state = {
     "daemon_status": "stopped",
     "auto_approve": True,
     "auto_continue": True,
-    "answer_questions": False,  # DISABLED - too risky, can send "yes" to wrong prompts
-    "auto_followup": False,  # DISABLED - sends unwanted prompts
+    "answer_questions": False,  # Now safer with [AUTO] prefix, but still off by default
+    "auto_followup": False,  # Now safer with [AUTO] prompts, but still off by default
     "paused": False,  # Whether daemon is paused
     "activity_log": [],  # List of activity events for timeline
 }

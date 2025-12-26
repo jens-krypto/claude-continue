@@ -136,4 +136,5 @@ class TestEdgeCases:
 
     def test_empty_question_has_fallback(self, responder):
         response = responder.answer_question("")
-        assert response.response == "yes"  # Fallback
+        assert "[AUTO]" in response.response  # Cautious fallback with [AUTO] prefix
+        assert response.confidence < 0.5  # Low confidence for safety

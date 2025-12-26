@@ -227,9 +227,15 @@ class SessionMonitor:
 
         elif prompt.prompt_type == PromptType.QUESTION:
             if answer_questions:
-                response = self.responder.get_response(prompt.text, prompt.context)
-                action_type = f"answered: {response[:20] if response else 'None'}"
-                logger.debug(f"Smart regex answered: {response[:50] if response else 'None'}")
+                # Get response with confidence check
+                smart_response = self.responder.answer_question(prompt.text, prompt.context)
+                # Only send if confidence is high enough (avoid sending uncertain answers)
+                if smart_response.confidence >= 0.5:
+                    response = smart_response.response
+                    action_type = f"answered: {response[:20] if response else 'None'}"
+                    logger.debug(f"Smart regex answered ({smart_response.confidence:.0%}): {response[:50] if response else 'None'}")
+                else:
+                    logger.debug(f"Skipped low-confidence answer ({smart_response.confidence:.0%}): {smart_response.response[:50]}")
 
         elif prompt.prompt_type == PromptType.COMPLETED:
             # Get auto_followup from web state or config

@@ -52,56 +52,26 @@ FOLLOWUP_DELAY = float(os.getenv("CLAUDE_CONTINUE_FOLLOWUP_DELAY", "5.0"))
 FOLLOWUP_COOLDOWN = float(os.getenv("CLAUDE_CONTINUE_FOLLOWUP_COOLDOWN", "30.0"))
 
 # Follow-up prompts to send when Claude is idle (rotated randomly)
+# NOTE: These are marked [AUTO] to indicate automated messages
+# Be cautious - these can trigger unwanted actions!
 FOLLOWUP_PROMPTS = [
-    # Plan-focused
-    "What's the next step in our plan? Execute it!",
-    "Are there any remaining tasks in the todo list? Complete them.",
-    "Check if there are pending items and continue with the next one.",
+    # Gentle continuation prompts (safest)
+    "[AUTO] What's the current status? Please summarize without taking action.",
+    "[AUTO] Are there any pending tasks? List them but wait for confirmation before proceeding.",
+    "[AUTO] What would be the next logical step? Describe it but don't execute yet.",
 
-    # Testing-focused
-    "How's the test coverage? Run the tests and show me the results.",
-    "Are there integration tests? If not, should we add some?",
-    "Run the test suite and fix any failures.",
+    # Status checks (read-only, safe)
+    "[AUTO] Can you show me the current todo list status?",
+    "[AUTO] What files have been modified in this session?",
+    "[AUTO] Summarize what we've accomplished so far.",
 
-    # Quality-focused
-    "Review the code for any improvements or cleanup needed.",
-    "Are there any TODO comments in the code that should be addressed?",
-    "Check for any error handling that might be missing.",
+    # Deep thinking (safe - just asks to think)
+    "[AUTO] Think step by step about potential edge cases we might have missed.",
+    "[AUTO] What are the risks or potential issues with the current approach?",
 
-    # Security-focused
-    "How's the security? Have you reviewed it for vulnerabilities?",
-    "Check for any security issues - input validation, injection risks, etc.",
-    "Review the code for OWASP top 10 vulnerabilities.",
-
-    # Architecture-focused
-    "Is the architecture sound? Any improvements needed?",
-    "Review the code structure and suggest architectural improvements.",
-    "Check if the separation of concerns is properly maintained.",
-
-    # Documentation-focused
-    "Does README.md exist and is it up to date?",
-    "Is there anything that should be documented?",
-    "Check if the documentation matches the current implementation.",
-
-    # Verification
-    "Verify that everything works by running a quick test.",
-    "Double-check the implementation against the requirements.",
-    "Do a final review before we wrap up.",
-
-    # Deep thinking
-    "Use ultrathink to deeply analyze the problem and solution.",
-    "Think step by step about potential edge cases we might have missed.",
-    "Consider using extended thinking to review the implementation.",
-
-    # Agent delegation
-    "Is this task complex enough to benefit from using agents?",
-    "Consider delegating parts of this to specialized agents for better results.",
-    "Would breaking this into subtasks for agents improve the outcome?",
-
-    # Out of ideas
-    "If you've run out of ideas, what would be the best next step?",
-    "What else could we improve or add to this implementation?",
-    "Are there any features or edge cases we haven't considered yet?",
+    # Clarification (safe - asks for info)
+    "[AUTO] Is there anything unclear that needs clarification before continuing?",
+    "[AUTO] What assumptions are we making that should be verified?",
 ]
 
 # =============================================================================
