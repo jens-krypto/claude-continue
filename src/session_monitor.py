@@ -52,6 +52,7 @@ from web.server import (
     is_session_enabled,
     get_session_state,
     is_force_monitored,
+    add_activity_event,
 )
 
 logger = logging.getLogger(__name__)
@@ -268,6 +269,15 @@ class SessionMonitor:
             self.state.action_count += 1
             # Update web GUI
             increment_prompt_count(self.state.session_id, action_type)
+            # Log activity event for timeline
+            add_activity_event(
+                session_id=self.state.session_id,
+                event_type=action_type.split(":")[0] if ":" in action_type else action_type,
+                prompt_type=prompt.prompt_type.value,
+                prompt_text=prompt.text,
+                response=response,
+                confidence=prompt.confidence
+            )
 
     async def _verify_claude_active(self) -> bool:
         """Verify Claude is still the active process before sending response.
@@ -282,6 +292,14 @@ class SessionMonitor:
                 return False
 
             screen_text = self._extract_text(contents)
+
+            # Block input during thinking/pondering states
+            # Claude doesn't accept input while processing
+            blocking_states = ['Pondering', 'thinking']
+            for state in blocking_states:
+                if state in screen_text:
+                    logger.debug(f"Claude is {state} - blocking input")
+                    return False
 
             # Look for definitive Claude Code indicators
             claude_indicators = [
@@ -322,7 +340,9 @@ class SessionMonitor:
                     return
 
             # Add newline to submit the response (Enter key)
-            if not text.endswith('\n'):
+            # Exception: single-digit menu selections ('1', '2', '3') don't need Enter
+            # Claude Code's TUI menu responds to single keypress immediately
+            if not text.endswith('\n') and text not in ['1', '2', '3']:
                 text = text + '\n'
             await self.session.async_send_text(text)
             logger.debug(f"Sent to session {self.state.session_id}: {text[:50]}")

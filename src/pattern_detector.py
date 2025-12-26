@@ -149,6 +149,8 @@ class PatternDetector:
         r"^(import|from|def|class|function|const|let|var)\s",  # Code
         r"^\d{4}-\d{2}-\d{2}",             # Timestamps
         r"^\[\d{2}:\d{2}:\d{2}\]",         # Log timestamps
+        r"Pondering",                      # Claude is thinking
+        r"\* Pondering\.\.\.",             # Full pondering indicator
     ]
 
     def __init__(self):

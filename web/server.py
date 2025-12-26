@@ -7,6 +7,7 @@ import asyncio
 import json
 import logging
 import re
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 from aiohttp import web
@@ -47,6 +48,9 @@ WEB_PORT = 7777
 # Lock for thread-safe state modifications
 _state_lock = asyncio.Lock()
 
+# Maximum activity log entries to keep
+MAX_ACTIVITY_LOG = 100
+
 # Session state (shared with daemon)
 _session_state = {
     "sessions": {},  # session_id -> {name, enabled, prompts_detected, last_action, is_claude}
@@ -56,6 +60,7 @@ _session_state = {
     "answer_questions": False,  # DISABLED - too risky, can send "yes" to wrong prompts
     "auto_followup": False,  # DISABLED - sends unwanted prompts
     "paused": False,  # Whether daemon is paused
+    "activity_log": [],  # List of activity events for timeline
 }
 
 
@@ -115,6 +120,47 @@ def increment_prompt_count(session_id: str, action: str):
     if session_id in _session_state["sessions"]:
         _session_state["sessions"][session_id]["prompts_detected"] += 1
         _session_state["sessions"][session_id]["last_action"] = action
+
+
+def add_activity_event(
+    session_id: str,
+    event_type: str,
+    prompt_type: str = "",
+    prompt_text: str = "",
+    response: str = "",
+    confidence: float = 0.0
+):
+    """Add an activity event to the timeline.
+
+    Args:
+        session_id: The session ID
+        event_type: Type of event (approved, continued, answered, blocked, error)
+        prompt_type: Type of prompt (permission, continuation, question)
+        prompt_text: The prompt text (truncated)
+        response: The response sent
+        confidence: Pattern match confidence (0-1)
+    """
+    session_name = "Unknown"
+    if session_id in _session_state["sessions"]:
+        session_name = _session_state["sessions"][session_id].get("name", session_id[:8])
+
+    event = {
+        "timestamp": datetime.now().strftime("%H:%M:%S"),
+        "session_id": session_id,
+        "session_name": session_name,
+        "event_type": event_type,
+        "prompt_type": prompt_type,
+        "prompt_text": prompt_text[:100] if prompt_text else "",  # Truncate long prompts
+        "response": response[:50] if response else "",
+        "confidence": confidence,
+    }
+
+    _session_state["activity_log"].insert(0, event)  # Newest first
+
+    # Trim to max size
+    if len(_session_state["activity_log"]) > MAX_ACTIVITY_LOG:
+        _session_state["activity_log"] = _session_state["activity_log"][:MAX_ACTIVITY_LOG]
+
 
 
 def is_session_enabled(session_id: str) -> bool:
@@ -471,6 +517,92 @@ HTML_TEMPLATE = """
         }
 
         .no-sessions {
+            text-align: center;
+            padding: 40px 20px;
+            opacity: 0.6;
+            font-size: 0.85rem;
+            letter-spacing: 2px;
+        }
+
+        /* Activity Timeline */
+        .activity-section {
+            background: rgba(0,0,0,0.2);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border: 2px solid rgba(255,255,255,0.1);
+        }
+
+        .activity-timeline {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .activity-event {
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            border-left: 3px solid var(--cyan);
+            position: relative;
+        }
+
+        .activity-event.approved {
+            border-left-color: #28a745;
+        }
+
+        .activity-event.continue {
+            border-left-color: var(--cyan);
+        }
+
+        .activity-event.answered {
+            border-left-color: var(--gold);
+        }
+
+        .activity-event.followup {
+            border-left-color: #e066ff;
+        }
+
+        .activity-event.regex {
+            border-left-color: #fd7e14;
+        }
+
+        .activity-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .activity-type {
+            font-weight: 600;
+            font-size: 0.8rem;
+            letter-spacing: 1px;
+        }
+
+        .activity-time {
+            font-size: 0.7rem;
+            opacity: 0.6;
+            font-family: monospace;
+        }
+
+        .activity-text {
+            font-size: 0.75rem;
+            opacity: 0.8;
+            margin-bottom: 4px;
+            line-height: 1.4;
+            word-break: break-word;
+        }
+
+        .activity-meta {
+            font-size: 0.65rem;
+            opacity: 0.5;
+            display: flex;
+            gap: 12px;
+        }
+
+        .no-activity {
             text-align: center;
             padding: 40px 20px;
             opacity: 0.6;
@@ -891,6 +1023,13 @@ HTML_TEMPLATE = """
             </div>
         </div>
 
+        <div class="activity-section">
+            <h3 class="section-title">📜 Activity Timeline</h3>
+            <div id="activityTimeline" class="activity-timeline">
+                <div class="no-activity">No activity yet</div>
+            </div>
+        </div>
+
         <footer class="footer">
             <div class="footer-links">
                 <a href="https://addicted.bot" target="_blank" class="footer-link website">
@@ -1097,11 +1236,110 @@ HTML_TEMPLATE = """
             updateControlButtons(data.paused || false);
         };
 
+        // Activity Timeline
+        async function fetchActivity() {
+            try {
+                const response = await fetch('/api/activity?limit=30');
+                const events = await response.json();
+                updateActivityTimeline(events);
+            } catch (error) {
+                console.error('Failed to fetch activity:', error);
+            }
+        }
+
+        function updateActivityTimeline(events) {
+            const timeline = document.getElementById('activityTimeline');
+            timeline.replaceChildren();
+
+            if (!events || events.length === 0) {
+                const noActivity = document.createElement('div');
+                noActivity.className = 'no-activity';
+                noActivity.textContent = 'No activity yet';
+                timeline.appendChild(noActivity);
+                return;
+            }
+
+            events.forEach(event => {
+                const eventDiv = document.createElement('div');
+                eventDiv.className = 'activity-event ' + event.event_type;
+
+                const header = document.createElement('div');
+                header.className = 'activity-header';
+
+                const typeSpan = document.createElement('span');
+                typeSpan.className = 'activity-type';
+                typeSpan.textContent = getEventIcon(event.event_type) + ' ' + getEventLabel(event.event_type);
+                header.appendChild(typeSpan);
+
+                const timeSpan = document.createElement('span');
+                timeSpan.className = 'activity-time';
+                timeSpan.textContent = event.timestamp;
+                header.appendChild(timeSpan);
+
+                eventDiv.appendChild(header);
+
+                if (event.prompt_text) {
+                    const textDiv = document.createElement('div');
+                    textDiv.className = 'activity-text';
+                    textDiv.textContent = '"' + event.prompt_text + '"';
+                    eventDiv.appendChild(textDiv);
+                }
+
+                const metaDiv = document.createElement('div');
+                metaDiv.className = 'activity-meta';
+
+                const sessionSpan = document.createElement('span');
+                sessionSpan.textContent = '📍 ' + event.session_name;
+                metaDiv.appendChild(sessionSpan);
+
+                if (event.response) {
+                    const responseSpan = document.createElement('span');
+                    responseSpan.textContent = '↪ ' + event.response;
+                    metaDiv.appendChild(responseSpan);
+                }
+
+                if (event.confidence) {
+                    const confSpan = document.createElement('span');
+                    confSpan.textContent = '🎯 ' + (event.confidence * 100).toFixed(0) + '%';
+                    metaDiv.appendChild(confSpan);
+                }
+
+                eventDiv.appendChild(metaDiv);
+                timeline.appendChild(eventDiv);
+            });
+        }
+
+        function getEventIcon(eventType) {
+            const icons = {
+                'approved': '✅',
+                'continue': '▶️',
+                'answered': '💬',
+                'followup': '📤',
+                'regex': '🔧',
+                'blocked': '🚫'
+            };
+            return icons[eventType] || '📌';
+        }
+
+        function getEventLabel(eventType) {
+            const labels = {
+                'approved': 'Approved permission',
+                'continue': 'Sent continue',
+                'answered': 'Answered question',
+                'followup': 'Sent follow-up',
+                'regex': 'Regex response',
+                'blocked': 'Blocked'
+            };
+            return labels[eventType] || eventType;
+        }
+
         // Initial fetch
         fetchStatus();
+        fetchActivity();
 
         // Poll every 2 seconds
         setInterval(fetchStatus, 2000);
+        setInterval(fetchActivity, 2000);
     </script>
 </body>
 </html>
@@ -1191,6 +1429,13 @@ async def handle_force_monitor(request):
         return web.json_response({"error": str(e)}, status=400)
 
 
+async def handle_activity(request):
+    """Get activity timeline events."""
+    limit = int(request.query.get('limit', 50))
+    limit = min(max(limit, 1), MAX_ACTIVITY_LOG)  # Clamp between 1 and max
+    return web.json_response(_session_state["activity_log"][:limit])
+
+
 def is_paused() -> bool:
     """Check if daemon is paused."""
     return _session_state.get("paused", False)
@@ -1201,6 +1446,7 @@ def create_app():
     app = web.Application(middlewares=[cors_middleware])
     app.router.add_get('/', handle_index)
     app.router.add_get('/api/status', handle_status)
+    app.router.add_get('/api/activity', handle_activity)
     app.router.add_post('/api/settings', handle_settings)
     app.router.add_post('/api/sessions/{session_id}', handle_session_toggle)
     app.router.add_post('/api/sessions/{session_id}/force', handle_force_monitor)
