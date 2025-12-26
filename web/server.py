@@ -596,13 +596,14 @@ HTML_TEMPLATE = """
 
         .disclaimer {
             font-size: 0.75rem;
-            color: #ff6b6b;
+            color: #fff;
             padding: 12px;
-            background: rgba(255, 107, 107, 0.15);
-            border: 1px solid rgba(255, 107, 107, 0.3);
+            background: rgba(180, 40, 40, 0.9);
+            border: 1px solid rgba(220, 53, 69, 0.8);
             border-radius: 8px;
             margin-top: 15px;
             text-align: center;
+            text-shadow: 0 1px 1px rgba(0,0,0,0.3);
         }
 
         .risk-badge {
