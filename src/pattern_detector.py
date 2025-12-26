@@ -219,11 +219,16 @@ class PatternDetector:
         lines = recent_text.strip().split('\n')
         last_lines = '\n'.join(lines[-10:])  # Focus on last 10 lines
 
-        # STRICT CHECK: Must have numbered options with Yes/No at START of line
-        # Pattern: "1. Yes" or "2. No" etc at line start
-        yes_no_options = re.findall(r'^\s*[1-3]\.\s*(Yes|No|Ja|Nej)', last_lines, re.MULTILINE | re.IGNORECASE)
+        # STRICT CHECK: Must have numbered options with Yes/No/Allow/Reject at START of line
+        # Pattern: "1. Yes" or "2. No" or "3. Reject" etc at line start
+        # Note: Claude Code uses ❯ selector before active option, so we need to handle that
+        # Also match "1. Allow" style prompts
+        yes_no_options = re.findall(
+            r'^[\s❯]*[1-3]\.\s*(Yes|No|Ja|Nej|Allow|Reject|Deny|Accept|Cancel)',
+            last_lines, re.MULTILINE | re.IGNORECASE
+        )
 
-        if len(yes_no_options) >= 2:  # Need at least 2 Yes/No options to be a real prompt
+        if len(yes_no_options) >= 2:  # Need at least 2 options to be a real prompt
             # This looks like a real permission dialog
             # Also check for permission header patterns
             has_permission_header = any(p.search(last_lines) for p in self._permission_re[:2])  # First 2 patterns are headers
