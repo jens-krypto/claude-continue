@@ -340,9 +340,10 @@ class SessionMonitor:
                     return
 
             # Send text first, then Enter separately
+            # Use \r (carriage return) as that's what Enter key actually sends
             await self.session.async_send_text(text)
-            await asyncio.sleep(0.05)  # Small delay
-            await self.session.async_send_text('\n')  # Send Enter
+            await asyncio.sleep(0.1)  # Delay to let text appear
+            await self.session.async_send_text('\r')  # Send Enter (carriage return)
             logger.debug(f"Sent to session {self.state.session_id}: {text[:50]}")
         except Exception as e:
             logger.error(f"Error sending response: {e}")
