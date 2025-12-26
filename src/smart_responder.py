@@ -74,7 +74,7 @@ class SmartResponder:
     # =========================================================================
     DANGEROUS_PATTERNS = [
         # Destructive file operations
-        (r"rm\s+(-[a-zA-Z]*r[a-zA-Z]*\s+)?(-[a-zA-Z]*f[a-zA-Z]*\s+)?/($|\s)", "recursive delete from root"),
+        (r"rm\s+(-[a-zA-Z]*r[a-zA-Z]*\s+)?(-[a-zA-Z]*f[a-zA-Z]*\s+)?/", "recursive delete from root path"),
         (r"rm\s+(-[a-zA-Z]*r[a-zA-Z]*\s+)?(-[a-zA-Z]*f[a-zA-Z]*\s+)?~", "recursive delete from home"),
         (r"rm\s+(-[a-zA-Z]*)?--recursive\s+--force", "recursive delete with long flags"),
         (r"rm\s+-rf\s+\*", "recursive delete wildcard"),
