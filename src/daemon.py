@@ -32,6 +32,7 @@ import sys
 import os
 import signal
 import socket
+import subprocess
 import webbrowser
 
 # Add parent directory to path for imports
@@ -43,6 +44,68 @@ from config import (
     LOG_TO_CONSOLE,
     DEBUG,
 )
+
+
+def open_browser_tab(url: str) -> bool:
+    """Open URL in browser, reusing existing tab if possible.
+
+    Uses AppleScript to check if Chrome has a tab with the URL already open.
+    If yes, switches to that tab. If no, opens a new tab.
+    Falls back to webbrowser.open() if AppleScript fails.
+
+    Returns True if successful.
+    """
+    # AppleScript to find and switch to existing tab, or open new one
+    applescript = f'''
+    tell application "Google Chrome"
+        set found to false
+        set targetURL to "{url}"
+
+        repeat with w in windows
+            set tabIndex to 0
+            repeat with t in tabs of w
+                set tabIndex to tabIndex + 1
+                if URL of t starts with targetURL then
+                    set found to true
+                    set active tab index of w to tabIndex
+                    set index of w to 1
+                    activate
+                    return "found"
+                end if
+            end repeat
+        end repeat
+
+        if not found then
+            if (count of windows) = 0 then
+                make new window
+            end if
+            tell front window
+                make new tab with properties {{URL:targetURL}}
+            end tell
+            activate
+            return "opened"
+        end if
+    end tell
+    '''
+
+    try:
+        result = subprocess.run(
+            ['osascript', '-e', applescript],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if result.returncode == 0:
+            return True
+    except Exception:
+        pass
+
+    # Fallback to default browser
+    try:
+        webbrowser.open(url)
+        return True
+    except Exception:
+        return False
 
 
 class NoiseFilter(logging.Filter):
@@ -156,21 +219,15 @@ async def main_iterm2(connection, start_web=True):
                 logger.warning(f"Port {WEB_PORT} already in use - web GUI disabled")
                 logger.info(f"Another Claude Continue instance may be running. Visit {web_url}")
                 print(f"Web GUI already running at {web_url}")
-                try:
-                    webbrowser.open(web_url)
-                except Exception:
-                    pass
+                open_browser_tab(web_url)
                 start_web = False
             else:
                 try:
                     web_runner = await start_web_server()
                     logger.info(f"Web GUI available at {web_url}")
                     print(f"Web GUI running at {web_url}")
-                    # Auto-open browser
-                    try:
-                        webbrowser.open(web_url)
-                    except Exception:
-                        pass
+                    # Auto-open browser (reuses existing tab if open)
+                    open_browser_tab(web_url)
                 except Exception as e:
                     logger.warning(f"Could not start web GUI: {e}")
                     print(f"Web GUI failed to start: {e}")
