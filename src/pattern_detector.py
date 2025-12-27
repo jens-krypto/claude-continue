@@ -227,7 +227,7 @@ class PatternDetector:
             last_lines, re.MULTILINE | re.IGNORECASE
         )
 
-        if len(yes_no_options) >= 2:  # Need at least 2 options to be a real prompt
+        if len(yes_no_options) >= 1:  # Need at least 1 Yes/No option to be a real prompt
             # This looks like a real permission dialog
             # Also check for permission header patterns
             has_permission_header = any(p.search(last_lines) for p in self._permission_re[:2])  # First 2 patterns are headers
