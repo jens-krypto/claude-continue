@@ -173,6 +173,35 @@ export CLAUDE_CONTINUE_LOG_FILE="~/Library/Logs/claude-continue.log"
 export CLAUDE_CONTINUE_DEBUG="false"            # Extra verbose logging
 ```
 
+## macOS Permissions
+
+### iTerm2 Python API
+
+The daemon requires iTerm2's Python API to be enabled:
+
+1. Open **iTerm2 Preferences** (Cmd+,)
+2. Go to **General** → **Magic**
+3. Check **Enable Python API**
+4. Restart iTerm2
+
+### Chrome Tab Reuse (Optional)
+
+When the daemon starts, it opens the web GUI in your browser. To reuse an existing tab instead of opening a new one:
+
+1. Open **System Settings** (or System Preferences on older macOS)
+2. Go to **Privacy & Security** → **Automation**
+3. Find **iTerm** in the list
+4. Enable **Google Chrome** ✅
+
+Without this permission, a new browser tab will open each time.
+
+### Accessibility (If Needed)
+
+If you encounter issues with the daemon detecting or sending keystrokes:
+
+1. Open **System Settings** → **Privacy & Security** → **Accessibility**
+2. Add **iTerm** to the list and enable it
+
 ## File Structure
 
 ```
