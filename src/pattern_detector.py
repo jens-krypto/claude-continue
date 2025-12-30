@@ -220,10 +220,10 @@ class PatternDetector:
 
         # STRICT CHECK: Must have numbered options with Yes/No/Allow/Reject at START of line
         # Pattern: "1. Yes" or "2. No" or "3. Reject" etc at line start
-        # Note: Claude Code uses ❯ selector before active option, so we need to handle that
-        # Also match "1. Allow" style prompts
+        # Note: Claude Code uses various selector chars before active option: ❯ > → • ▶ ►
+        # Also support both "1." and "1)" formats
         yes_no_options = re.findall(
-            r'^[\s❯]*[1-3]\.\s*(Yes|No|Ja|Nej|Allow|Reject|Deny|Accept|Cancel)',
+            r'^[\s❯>→•▶►]*[1-3][\.\)]\s*(Yes|No|Ja|Nej|Allow|Reject|Deny|Accept|Cancel|Approve)',
             last_lines, re.MULTILINE | re.IGNORECASE
         )
 
@@ -275,7 +275,7 @@ class PatternDetector:
         lines = recent_text.strip().split('\n')
         last_lines = '\n'.join(lines[-15:])
         has_permission_context = bool(re.search(
-            r'^[\s❯]*[1-3]\.\s*(Yes|No|Ja|Nej|Allow|Reject)',
+            r'^[\s❯>→•▶►]*[1-3][\.\)]\s*(Yes|No|Ja|Nej|Allow|Reject|Deny|Accept|Cancel|Approve)',
             last_lines, re.MULTILINE | re.IGNORECASE
         ))
         if has_permission_context:

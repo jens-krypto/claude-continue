@@ -301,11 +301,10 @@ class SessionMonitor:
 
             # Block input during thinking/pondering states
             # Claude doesn't accept input while processing
-            blocking_states = ['Pondering', 'thinking']
-            for state in blocking_states:
-                if state in screen_text:
-                    logger.debug(f"Claude is {state} - blocking input")
-                    return False
+            # Use pattern matching to avoid false positives from text containing "Pondering"
+            if self._is_thinking_state(screen_text):
+                logger.debug("Claude is in thinking state - blocking input")
+                return False
 
             # Look for definitive Claude Code indicators
             claude_indicators = [
@@ -328,6 +327,31 @@ class SessionMonitor:
         except Exception as e:
             logger.error(f"Error verifying Claude status: {e}")
             return False
+
+    def _is_thinking_state(self, screen_text: str) -> bool:
+        """Check if Claude is in a thinking state (not just text mentioning it).
+
+        Uses pattern matching to distinguish actual thinking indicators from
+        text that just happens to contain words like "Pondering".
+        Only checks the last few lines where status indicators appear.
+        """
+        lines = screen_text.strip().split('\n')
+        last_lines = '\n'.join(lines[-5:])  # Status appears in recent lines
+
+        # Specific thinking indicators (at start of line or with status icons)
+        thinking_patterns = [
+            r'^\s*\*?\s*Pondering\.\.\.?$',      # "* Pondering..." on its own line
+            r'^\s*⏳\s*Thinking',                 # With timer emoji
+            r'^\s*⏳\s*Pondering',                # With timer emoji
+            r'^\s*Claude is thinking',            # Explicit state
+            r'^\s*Extended thinking',             # Extended thinking mode
+            r'^\s*\[thinking\]',                  # Bracketed indicator
+        ]
+
+        for pattern in thinking_patterns:
+            if re.search(pattern, last_lines, re.MULTILINE | re.IGNORECASE):
+                return True
+        return False
 
     async def _send_response(self, text: str, prompt: Optional[DetectedPrompt] = None):
         """Send text to the session.
