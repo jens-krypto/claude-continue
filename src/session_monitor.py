@@ -160,6 +160,11 @@ class SessionMonitor:
         # Detect prompts
         prompt = self.detector.detect(screen_text)
         if not prompt:
+            # Log for the specific Claude session we're debugging
+            if "8C8FCF39" in self.state.session_id:
+                with open("/tmp/claude_screen_dump.txt", "w") as f:
+                    f.write(screen_text)
+                logger.info(f"Claude session - {len(screen_text)} chars, {len(screen_text.split(chr(10)))} lines - dumped to /tmp/claude_screen_dump.txt")
             return
 
         # Skip if we already handled this prompt
@@ -194,8 +199,11 @@ class SessionMonitor:
 
     async def _handle_prompt(self, prompt: DetectedPrompt):
         """Handle a detected prompt."""
+        logger.info(f"_handle_prompt called for {prompt.prompt_type.value} in session {self.state.session_id[:8]}")
+
         # Check if this session is enabled in web GUI
         if not is_session_enabled(self.state.session_id):
+            logger.info(f"Session {self.state.session_id[:8]} not enabled - skipping")
             return
 
         # Get dynamic settings from web GUI
@@ -267,6 +275,7 @@ class SessionMonitor:
 
         # Send response if we have one
         if response:
+            logger.info(f"About to send response '{response}' for {prompt.prompt_type.value}")
             # Pass the detected prompt to skip redundant verification
             # (we just detected Claude is active, no need to re-check)
             await self._send_response(response, prompt)
