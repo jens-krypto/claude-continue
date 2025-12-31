@@ -219,14 +219,22 @@ class PatternDetector:
         lines = recent_text.strip().split('\n')
         last_lines = '\n'.join(lines[-10:])  # Focus on last 10 lines
 
-        # STRICT CHECK: Must have numbered options with Yes/No/Allow/Reject at START of line
-        # Pattern: "1. Yes" or "2. No" or "3. Reject" etc at line start
+        # STRICT CHECK: Must have numbered options with Yes/No/Allow/Reject
+        # Pattern: "1. Yes" or "2. No" or "3. Reject" etc
         # Note: Claude Code uses various selector chars before active option: ❯ > → • ▶ ►
         # Also support both "1." and "1)" formats
+        # More flexible: allow any chars before the number (handles indentation, special chars)
         yes_no_options = re.findall(
-            r'^[\s❯>→•▶►]*[1-3][\.\)]\s*(Yes|No|Ja|Nej|Allow|Reject|Deny|Accept|Cancel|Approve)',
+            r'^\s*[❯>→•▶►\s]*[1-3][\.\)]\s*(Yes|No|Ja|Nej|Allow|Reject|Deny|Accept|Cancel|Approve)',
             last_lines, re.MULTILINE | re.IGNORECASE
         )
+
+        # If that didn't work, try even more flexible pattern (number anywhere in line)
+        if not yes_no_options:
+            yes_no_options = re.findall(
+                r'[1-3][\.\)]\s*(Yes|No|Ja|Nej|Allow|Reject|Deny|Accept|Cancel|Approve)',
+                last_lines, re.IGNORECASE
+            )
 
         if len(yes_no_options) >= 1:  # Need at least 1 Yes/No option to be a real prompt
             # This looks like a real permission dialog
