@@ -46,6 +46,7 @@ import random
 from src.pattern_detector import PatternDetector, PromptType, DetectedPrompt
 from src.smart_responder import SmartResponder
 from src.deepseek_client import deepseek_client
+from src.agent.orchestrator import orchestrator as agent_orchestrator
 from web.server import (
     update_session,
     remove_session,
@@ -199,6 +200,56 @@ class SessionMonitor:
             logger.error(f"Error extracting screen text: {e}")
             return ""
 
+    def _is_agent_mode(self) -> bool:
+        """Check if agent mode is enabled (i.e., a goal is set)."""
+        active_goal = agent_orchestrator.goals.get_active_goal(self.state.session_id)
+        return active_goal is not None
+
+    async def _handle_prompt_agent_mode(self, prompt: DetectedPrompt, screen_text: str) -> bool:
+        """Handle prompt using agent orchestrator. Returns True if handled."""
+        try:
+            result = await agent_orchestrator.process_observation(
+                session_id=self.state.session_id,
+                screen_content=screen_text,
+                prompt_type=prompt.prompt_type.value,
+                prompt_text=prompt.text,
+            )
+
+            if result:
+                action_type, response = result
+
+                # Send the response
+                logger.info(f"Agent mode: sending '{response}' for {prompt.prompt_type.value}")
+                await self._send_response(response, prompt)
+                self.detector.mark_handled(prompt)
+                self.state.last_action_time = time.time()
+                self.state.action_count += 1
+
+                # Update web GUI
+                increment_prompt_count(self.state.session_id, f"agent:{action_type}")
+                add_activity_event(
+                    session_id=self.state.session_id,
+                    event_type=f"agent:{action_type}",
+                    prompt_type=prompt.prompt_type.value,
+                    prompt_text=prompt.text,
+                    response=response,
+                    confidence=prompt.confidence
+                )
+
+                # Record outcome (we assume success if no error)
+                await agent_orchestrator.record_outcome(
+                    session_id=self.state.session_id,
+                    outcome="success",
+                )
+
+                return True
+
+            return False
+
+        except Exception as e:
+            logger.error(f"Agent mode error: {e}")
+            return False
+
     async def _handle_prompt(self, prompt: DetectedPrompt):
         """Handle a detected prompt."""
         logger.info(f"_handle_prompt called for {prompt.prompt_type.value} in session {self.state.session_id[:8]}")
@@ -207,6 +258,20 @@ class SessionMonitor:
         if not is_session_enabled(self.state.session_id):
             logger.info(f"Session {self.state.session_id[:8]} not enabled - skipping")
             return
+
+        # Try agent mode first if a goal is set
+        if self._is_agent_mode():
+            # Get screen text for agent (need to re-fetch as _process_screen doesn't pass it)
+            try:
+                contents = await self.session.async_get_screen_contents()
+                screen_text = self._extract_text(contents) if contents else ""
+            except Exception:
+                screen_text = prompt.context  # Fallback to prompt context
+
+            if await self._handle_prompt_agent_mode(prompt, screen_text):
+                return  # Agent handled it
+
+            # Fall through to regular mode if agent didn't handle
 
         # Get dynamic settings from web GUI
         web_state = get_session_state()

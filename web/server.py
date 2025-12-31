@@ -18,6 +18,12 @@ try:
 except ImportError:
     deepseek_client = None
 
+# Import agent orchestrator for goal/plan management
+try:
+    from src.agent.orchestrator import orchestrator as agent_orchestrator
+except ImportError:
+    agent_orchestrator = None
+
 logger = logging.getLogger(__name__)
 
 # File to persist disabled session names across restarts
@@ -1504,6 +1510,154 @@ async def handle_activity(request):
     return web.json_response(_session_state["activity_log"][:limit])
 
 
+# ============================================================
+# Agent/Goal API Endpoints
+# ============================================================
+
+async def handle_agent_status(request):
+    """Get agent status for a session (goal, plan, state)."""
+    try:
+        session_id = request.match_info['session_id']
+        if not re.match(r'^[A-Za-z0-9_-]+$', session_id):
+            return web.json_response({"error": "Invalid session ID format"}, status=400)
+
+        if not agent_orchestrator:
+            return web.json_response({"error": "Agent module not available"}, status=503)
+
+        status = agent_orchestrator.get_session_status(session_id)
+        # Add learning status
+        status["learning"] = agent_orchestrator.learning.get_status()
+
+        return web.json_response(status)
+    except Exception as e:
+        logger.error(f"Agent status error: {e}")
+        return web.json_response({"error": str(e)}, status=500)
+
+
+async def handle_set_goal(request):
+    """Set a goal for a session."""
+    try:
+        session_id = request.match_info['session_id']
+        if not re.match(r'^[A-Za-z0-9_-]+$', session_id):
+            return web.json_response({"error": "Invalid session ID format"}, status=400)
+
+        if not agent_orchestrator:
+            return web.json_response({"error": "Agent module not available"}, status=503)
+
+        data = await request.json()
+        description = data.get("description", "").strip()
+        if not description:
+            return web.json_response({"error": "Goal description required"}, status=400)
+
+        success_criteria = data.get("success_criteria", [])
+        priority = int(data.get("priority", 1))
+
+        goal = agent_orchestrator.set_goal(
+            session_id=session_id,
+            description=description,
+            success_criteria=success_criteria,
+            priority=priority,
+        )
+
+        # Optionally create a plan if steps provided
+        steps = data.get("plan_steps", [])
+        plan = None
+        if steps:
+            plan = agent_orchestrator.create_plan(
+                goal_id=goal.goal_id,
+                session_id=session_id,
+                steps=steps,
+            )
+
+        return web.json_response({
+            "success": True,
+            "goal": goal.to_dict(),
+            "plan": plan.to_dict() if plan else None,
+        })
+    except Exception as e:
+        logger.error(f"Set goal error: {e}")
+        return web.json_response({"error": str(e)}, status=500)
+
+
+async def handle_delete_goal(request):
+    """Clear/complete the active goal for a session."""
+    try:
+        session_id = request.match_info['session_id']
+        if not re.match(r'^[A-Za-z0-9_-]+$', session_id):
+            return web.json_response({"error": "Invalid session ID format"}, status=400)
+
+        if not agent_orchestrator:
+            return web.json_response({"error": "Agent module not available"}, status=503)
+
+        active_goal = agent_orchestrator.goals.get_active_goal(session_id)
+        if not active_goal:
+            return web.json_response({"error": "No active goal"}, status=404)
+
+        # Complete or fail the goal based on request
+        data = await request.json() if request.can_read_body else {}
+        reason = data.get("reason", "Manually cleared")
+        success = data.get("success", False)
+
+        if success:
+            agent_orchestrator.goals.complete_goal(active_goal.goal_id, reason)
+        else:
+            agent_orchestrator.goals.fail_goal(active_goal.goal_id, reason)
+
+        return web.json_response({"success": True, "goal_id": active_goal.goal_id})
+    except Exception as e:
+        logger.error(f"Delete goal error: {e}")
+        return web.json_response({"error": str(e)}, status=500)
+
+
+async def handle_replan(request):
+    """Trigger replanning for a session."""
+    try:
+        session_id = request.match_info['session_id']
+        if not re.match(r'^[A-Za-z0-9_-]+$', session_id):
+            return web.json_response({"error": "Invalid session ID format"}, status=400)
+
+        if not agent_orchestrator:
+            return web.json_response({"error": "Agent module not available"}, status=503)
+
+        active_goal = agent_orchestrator.goals.get_active_goal(session_id)
+        if not active_goal:
+            return web.json_response({"error": "No active goal"}, status=404)
+
+        data = await request.json()
+        reason = data.get("reason", "User requested replan")
+        new_steps = data.get("steps", [])
+
+        if not new_steps:
+            return web.json_response({"error": "New plan steps required"}, status=400)
+
+        plan = agent_orchestrator.plans.replan(
+            goal_id=active_goal.goal_id,
+            session_id=session_id,
+            reason=reason,
+            new_steps=new_steps,
+        )
+
+        return web.json_response({
+            "success": True,
+            "plan": plan.to_dict(),
+        })
+    except Exception as e:
+        logger.error(f"Replan error: {e}")
+        return web.json_response({"error": str(e)}, status=500)
+
+
+async def handle_full_agent_status(request):
+    """Get full agent system status (all sessions)."""
+    try:
+        if not agent_orchestrator:
+            return web.json_response({"error": "Agent module not available"}, status=503)
+
+        return web.json_response(agent_orchestrator.get_full_status())
+    except Exception as e:
+        logger.error(f"Full agent status error: {e}")
+        return web.json_response({"error": str(e)}, status=500)
+
+
 def is_paused() -> bool:
     """Check if daemon is paused."""
     return _session_state.get("paused", False)
@@ -1519,6 +1673,14 @@ def create_app():
     app.router.add_post('/api/sessions/{session_id}', handle_session_toggle)
     app.router.add_post('/api/sessions/{session_id}/force', handle_force_monitor)
     app.router.add_post('/api/control/{action}', handle_control)
+
+    # Agent/Goal endpoints
+    app.router.add_get('/api/agent/status', handle_full_agent_status)
+    app.router.add_get('/api/sessions/{session_id}/agent', handle_agent_status)
+    app.router.add_post('/api/sessions/{session_id}/goal', handle_set_goal)
+    app.router.add_delete('/api/sessions/{session_id}/goal', handle_delete_goal)
+    app.router.add_post('/api/sessions/{session_id}/replan', handle_replan)
+
     return app
 
 

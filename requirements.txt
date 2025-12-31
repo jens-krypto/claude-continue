@@ -6,3 +6,8 @@ iterm2>=2.7
 
 # Web GUI server
 aiohttp>=3.8
+
+# Testing
+pytest>=7.0
+pytest-asyncio>=0.21
+pytest-mock>=3.10
