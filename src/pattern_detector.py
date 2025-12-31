@@ -237,17 +237,29 @@ class PatternDetector:
             )
 
         if len(yes_no_options) >= 1:  # Need at least 1 Yes/No option to be a real prompt
+            # FIX: Require at least one "Yes" option to be a VALID permission dialog
+            # If only "No" is visible, we're likely seeing a partial/transitioning screen
+            yes_keywords = ('yes', 'ja', 'allow', 'accept', 'approve')
+            has_yes = any(opt.lower() in yes_keywords for opt in yes_no_options)
+
+            if not has_yes:
+                logger.debug(f"Ignoring partial permission - no Yes option visible: {yes_no_options}")
+                return None
+
             # This looks like a real permission dialog
             # Also check for permission header patterns
             has_permission_header = any(p.search(last_lines) for p in self._permission_re[:2])  # First 2 patterns are headers
 
-            # DEBUG: Log what we matched
+            # FIX: Include matched options in text for proper duplicate detection
+            # Sort to normalize order (cursor position can change order)
+            option_signature = ','.join(sorted(set(opt.lower() for opt in yes_no_options)))
+
             logger.info(f"Permission detected! Matched options: {yes_no_options}")
             logger.debug(f"Context (last 10 lines):\n{last_lines}")
 
             return DetectedPrompt(
                 prompt_type=PromptType.PERMISSION,
-                text="Permission prompt detected",
+                text=f"Permission: {option_signature}",  # Include options for dedup
                 context=last_lines,
                 suggested_response="1",  # Default to approve
                 confidence=0.95 if has_permission_header else 0.85,
