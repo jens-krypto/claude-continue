@@ -170,6 +170,7 @@ class SessionMonitor:
 
         # Skip if we already handled this prompt
         if self.detector.is_same_prompt(prompt):
+            logger.debug(f"Skipping duplicate prompt: {prompt.prompt_type.value}")
             return
 
         # Log detection

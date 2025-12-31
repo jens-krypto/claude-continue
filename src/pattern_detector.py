@@ -3,6 +3,7 @@ Pattern detection for Claude Code prompts.
 Identifies permission prompts, questions, and continuation needs.
 """
 import re
+import time
 import logging
 from enum import Enum
 from dataclasses import dataclass
@@ -316,9 +317,21 @@ class PatternDetector:
         return None
 
     def is_same_prompt(self, prompt: DetectedPrompt) -> bool:
-        """Check if this is the same prompt we already detected."""
+        """Check if this is the same prompt we already detected.
+
+        Allows re-handling after DUPLICATE_TIMEOUT_SECONDS to handle cases where:
+        - The input failed to be sent
+        - User dismissed the dialog and it reappeared
+        - A genuinely new identical permission request appeared
+        """
         if self._last_detected is None:
             return False
+
+        # Allow re-handling after timeout (30 seconds)
+        if hasattr(self, '_last_handled_time'):
+            if time.time() - self._last_handled_time > 30:
+                return False
+
         return (
             self._last_detected.prompt_type == prompt.prompt_type and
             self._last_detected.text == prompt.text
@@ -327,6 +340,7 @@ class PatternDetector:
     def mark_handled(self, prompt: DetectedPrompt):
         """Mark a prompt as handled to avoid duplicate responses."""
         self._last_detected = prompt
+        self._last_handled_time = time.time()
         self._detection_count += 1
 
     def reset(self):
