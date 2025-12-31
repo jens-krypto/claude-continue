@@ -236,6 +236,8 @@ class SessionMonitor:
                 logger.debug("Sending continuation")
 
         elif prompt.prompt_type == PromptType.QUESTION:
+            # Always mark questions as handled to prevent spam, even if we don't answer
+            self.detector.mark_handled(prompt)
             if answer_questions:
                 # Try DeepSeek first if available
                 if deepseek_client.can_call:
@@ -257,6 +259,8 @@ class SessionMonitor:
                         logger.debug(f"Skipped low-confidence answer ({smart_response.confidence:.0%}): {smart_response.response[:50]}")
 
         elif prompt.prompt_type == PromptType.COMPLETED:
+            # Always mark as handled to prevent spam
+            self.detector.mark_handled(prompt)
             # Get auto_followup from web state or config
             auto_followup = web_state.get("auto_followup", AUTO_FOLLOWUP)
 
