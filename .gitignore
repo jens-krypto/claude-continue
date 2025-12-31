@@ -27,6 +27,7 @@ Thumbs.db
 # Environment
 .env
 *.log
+*.local
 
 # Claude/AI config files
 CLAUDE.md

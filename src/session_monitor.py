@@ -45,6 +45,7 @@ from config import (
 import random
 from src.pattern_detector import PatternDetector, PromptType, DetectedPrompt
 from src.smart_responder import SmartResponder
+from src.deepseek_client import deepseek_client
 from web.server import (
     update_session,
     remove_session,
@@ -235,15 +236,24 @@ class SessionMonitor:
 
         elif prompt.prompt_type == PromptType.QUESTION:
             if answer_questions:
-                # Get response with confidence check
-                smart_response = self.responder.answer_question(prompt.text, prompt.context)
-                # Only send if confidence is high enough (avoid sending uncertain answers)
-                if smart_response.confidence >= 0.5:
-                    response = smart_response.response
-                    action_type = f"answered: {response[:20] if response else 'None'}"
-                    logger.debug(f"Smart regex answered ({smart_response.confidence:.0%}): {response[:50] if response else 'None'}")
-                else:
-                    logger.debug(f"Skipped low-confidence answer ({smart_response.confidence:.0%}): {smart_response.response[:50]}")
+                # Try DeepSeek first if available
+                if deepseek_client.can_call:
+                    ds_response = await deepseek_client.answer_question(prompt.text, prompt.context)
+                    if ds_response:
+                        response = ds_response
+                        action_type = f"deepseek: {response[:20] if response else 'None'}"
+                        logger.info(f"DeepSeek answered: {response[:50] if response else 'None'}")
+
+                # Fall back to regex-based response
+                if not response:
+                    smart_response = self.responder.answer_question(prompt.text, prompt.context)
+                    # Only send if confidence is high enough (avoid sending uncertain answers)
+                    if smart_response.confidence >= 0.5:
+                        response = smart_response.response
+                        action_type = f"answered: {response[:20] if response else 'None'}"
+                        logger.debug(f"Smart regex answered ({smart_response.confidence:.0%}): {response[:50] if response else 'None'}")
+                    else:
+                        logger.debug(f"Skipped low-confidence answer ({smart_response.confidence:.0%}): {smart_response.response[:50]}")
 
         elif prompt.prompt_type == PromptType.COMPLETED:
             # Get auto_followup from web state or config
@@ -259,8 +269,16 @@ class SessionMonitor:
                 # Wait before sending follow-up
                 await asyncio.sleep(FOLLOWUP_DELAY)
 
-                # Get next follow-up prompt (rotate through list)
-                if FOLLOWUP_PROMPTS:
+                # Try DeepSeek first for intelligent follow-up
+                if deepseek_client.can_call:
+                    ds_followup = await deepseek_client.generate_followup(prompt.context)
+                    if ds_followup:
+                        response = ds_followup
+                        action_type = f"deepseek-followup: {response[:30]}..."
+                        logger.info(f"DeepSeek generated follow-up: {response[:50]}")
+
+                # Fall back to predefined prompts
+                if not response and FOLLOWUP_PROMPTS:
                     # Shuffle on first use, then rotate
                     if self.state.followup_index == 0:
                         random.shuffle(FOLLOWUP_PROMPTS)
@@ -270,7 +288,8 @@ class SessionMonitor:
                     action_type = f"followup: {response[:30]}..."
                     logger.debug(f"Sending follow-up prompt: {response}")
 
-                    # Update followup time
+                # Update followup time if we have a response
+                if response:
                     self.state.last_followup_time = time.time()
 
         # Send response if we have one

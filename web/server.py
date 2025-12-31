@@ -12,6 +12,12 @@ from pathlib import Path
 from typing import Optional, Set
 from aiohttp import web
 
+# Import DeepSeek client for status reporting
+try:
+    from src.deepseek_client import deepseek_client
+except ImportError:
+    deepseek_client = None
+
 logger = logging.getLogger(__name__)
 
 # File to persist disabled session names across restarts
@@ -1393,8 +1399,14 @@ async def handle_index(request):
 
 
 async def handle_status(request):
-    """Get current status."""
-    return web.json_response(_session_state)
+    """Get current status including DeepSeek info."""
+    response = dict(_session_state)
+    # Add DeepSeek status
+    if deepseek_client:
+        response["deepseek"] = deepseek_client.get_status()
+    else:
+        response["deepseek"] = {"enabled": False, "reason": "Not loaded"}
+    return web.json_response(response)
 
 
 async def handle_settings(request):
